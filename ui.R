@@ -36,7 +36,7 @@ dashboardPage(
     tags$div(
       style = "position:absolute; bottom:16px; left:0; right:0; text-align:center;
                font-size:11px; color:#6b7280;",
-      "Data Science 2026"
+  
     )
   ),
   
