@@ -272,7 +272,7 @@ dashboardPage(
       ),
       tabItem(tabName = "temporelle",
               h2("Analyse temporelle", class = "page-title"),
-              p("Page en construction...")
+              p("Page en construction de Armida")
       ),
       tabItem(tabName = "prediction",
               h2("Prediction ML", class = "page-title"),
