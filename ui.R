@@ -23,7 +23,7 @@ dashboardPage(
     tags$hr(style = "border-color: #374151; margin: 8px 0;"),
     sidebarMenu(
       id = "menu_actif",
-      #menuItem("Accueil",       tabName = "accueil",      icon = icon("house")),
+      menuItem("Accueil",       tabName = "accueil",   icon = icon("house")),
       menuItem("Dashboard",     tabName = "dashboard",    icon = icon("chart-bar")),
       menuItem("Carte",         tabName = "carte",        icon = icon("map-pin")),
       menuItem("Temporelle",    tabName = "temporelle",   icon = icon("clock")),
@@ -48,15 +48,42 @@ dashboardPage(
       tags$link(rel = "stylesheet",
                 href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"),
       tags$style(HTML("
-    html, body, .wrapper, .content-wrapper, .tab-content, .tab-pane {
-      height: auto !important;
-      min-height: 100vh !important;
-      overflow: visible !important;
-    }
-    .main-sidebar {
-      position: fixed !important;
-      height: 100vh !important;
-    }
+      html, body, .wrapper, .content-wrapper, .tab-content, .tab-pane {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow: visible !important;
+      }
+      .main-sidebar {
+        position: fixed !important;
+        height: 100vh !important;
+      }
+  
+      /* ── Plein écran quand accueil est actif ── */
+      body.page-accueil .main-sidebar        { display: none !important; }
+      body.page-accueil .content-wrapper     { margin-left: 0 !important; padding: 0 !important; }
+      body.page-accueil .tab-content         { padding: 0 !important; }
+      body.page-accueil .wrapper             { overflow: hidden !important; }
+    ")),
+        tags$script(HTML("
+      $(document).ready(function() {
+  
+        function updateLayout() {
+          var isAccueil = $('#shiny-tab-accueil').hasClass('active');
+          if (isAccueil) {
+            $('body').addClass('page-accueil');
+          } else {
+            $('body').removeClass('page-accueil');
+          }
+        }
+  
+        // Vérifier au changement d'onglet
+        $(document).on('click', '.sidebar-menu a', function() {
+          setTimeout(updateLayout, 150);
+        });
+  
+        // Vérifier au démarrage
+        setTimeout(updateLayout, 400);
+      });
   "))
     ),
     
@@ -262,10 +289,14 @@ dashboardPage(
       
       # AUTRES PAGES
     
-    #  tabItem(tabName = "accueil",
-    #          h2("Accueil", class = "page-title"),
-    #          p("Page en construction...")
-    #  ),
+      tabItem(tabName = "accueil",
+              tags$iframe(
+                src = "accueil.html",
+                style = "width:100%; height:100vh; border:none; display:block;",
+                scrolling = "yes"
+              )
+      ),
+      
       tabItem(tabName = "carte",
               h2("Carte interactive", class = "page-title"),
               p("Page en construction...")
