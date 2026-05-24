@@ -63,6 +63,7 @@ dashboardPage(
       body.page-accueil .content-wrapper     { margin-left: 0 !important; padding: 0 !important; }
       body.page-accueil .tab-content         { padding: 0 !important; }
       body.page-accueil .wrapper             { overflow: hidden !important; }
+      .sidebar-menu li:first-child { display: none !important; }
     ")),
         tags$script(HTML("
       $(document).ready(function() {
@@ -79,7 +80,7 @@ dashboardPage(
         // Vérifier au changement d'onglet
         $(document).on('click', '.sidebar-menu a', function() {
           setTimeout(updateLayout, 150);
-        });
+        }); 
   
         // Vérifier au démarrage
         setTimeout(updateLayout, 400);
