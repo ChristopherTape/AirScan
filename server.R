@@ -7,7 +7,7 @@ server <- function(input, output, session) {
   
   
   
-  # DONNÉES — On calcule les stats dont on a besoin
+  # DONNÉES  On calcule les stats dont on a besoin
   
   
   # Valeurs moyennes par zone
@@ -63,7 +63,7 @@ server <- function(input, output, session) {
   
   
   
-  # KPI 2 — CO max
+  # KPI 2 : CO max
 
   output$co_max <- renderText({
     round(quantile(df$CO_ppm, 0.95, na.rm = TRUE), 1)
@@ -85,7 +85,7 @@ server <- function(input, output, session) {
   
   
   
-  # KPI 3 — CO₂ max
+  # KPI 3  CO₂ max
   
   output$co2_max <- renderText({
     round(max(df$CO2_ppm, na.rm = TRUE), 0)
@@ -120,7 +120,7 @@ server <- function(input, output, session) {
   
   
   
-  # GRAPHIQUE — Barres AQI par zone
+  # GRAPHIQUE Barres AQI par zone
   # renderPlot() crée un graphique ggplot2
   
   output$aqi_barplot <- renderPlot({
@@ -184,7 +184,7 @@ server <- function(input, output, session) {
   
   
   
-  # ZONE CARDS — Parking, Restaurant, Amphithéâtres
+  # ZONE CARDS  Parking, Restaurant, Amphithéâtres
   # On filtre les données par zone avec filter()
   
   
@@ -222,4 +222,101 @@ server <- function(input, output, session) {
   output$verte_nh3  <- renderText({ stats_zones %>% filter(zone_campus == "Zone_Verte") %>% pull(nh3_moy) })
   output$verte_temp <- renderText({ paste0(stats_zones %>% filter(zone_campus == "Zone_Verte") %>% pull(temp_moy), "C") })
   output$verte_hum  <- renderText({ paste0(stats_zones %>% filter(zone_campus == "Zone_Verte") %>% pull(hum_moy), "% humidite") })
-} # fin server
+  
+  #--------------PAGE CARTE ----------------------------#
+  #AQI moyen par zone 
+  carte_data <- stats_zones %>%
+    left_join(coords_zones, by="zone_campus") %>%
+    mutate(
+      couleur = couleur_aqi(aqi_moy),
+      categorie = label_aqi(aqi_moy)
+    )
+  output$carte_campus <- renderLeaflet({
+    leaflet(carte_data) %>%
+      addTiles() %>%
+      setView(lng = -3.9920, lat = 5.3430, zoom = 15) %>%
+      addCircleMarkers(
+        lng = ~lng, lat = ~lat,
+        radius = ~pmax(25, aqi_moy / 1.5),
+        color = ~couleur,
+        fillColor = ~couleur,
+        fillOpacity = 0.5,
+        stroke = TRUE, weight = 3,
+        label = ~paste0(label, " — AQI: ", aqi_moy),
+        popup = ~paste0(
+          "<div style='font-family:Inter,sans-serif; min-width:200px;'>",
+          "<b style='font-size:14px;'>", label, "</b><br/>",
+          "<span style='color:", couleur, "; font-weight:600;'>AQI: ", aqi_moy,
+          " — ", categorie, "</span><br/><hr style='margin:6px 0;'>",
+          "CO: ", co_moy, " ppm<br/>",
+          "CO₂: ", co2_moy, " ppm<br/>",
+          "NH₃: ", nh3_moy, " ppm<br/>",
+          "Temp: ", temp_moy, "°C | Hum: ", hum_moy, "%",
+          "</div>"
+        ),
+        layerId = ~zone_campus
+      ) %>%
+      addLabelOnlyMarkers(
+        data = carte_data,
+        lng = ~lng, lat = ~lat,
+        label = ~label,
+        labelOptions = labelOptions(
+          noHide = TRUE, direction = "top",
+          style = list(
+            "font-weight"    = "700",
+            "font-size"      = "12px",
+            "color"          = "#111827",
+            "background"     = "white",
+            "border"         = "1px solid #e5e7eb",
+            "border-radius"  = "6px",
+            "padding"        = "3px 8px",
+            "box-shadow"     = "0 1px 4px rgba(0,0,0,0.15)"
+          )
+        )
+      )
+  })
+  
+  # le panneau qui s'affiche a droite 
+  
+  output$carte_detail_zone <- renderUI({
+    clicked <- input$carte_campus_marker_click
+    
+    if (is.null(clicked)) {
+      return(div(
+        style = "text-align:center; color:#9ca3af; padding: 30px 0;",
+        icon("map-pin", style = "font-size: 32px; margin-bottom: 12px;"),
+        tags$p("Cliquez sur un marqueur pour voir les détails de la zone.")
+      ))
+    }
+    
+    zone_id  <- clicked$id
+    zone_row <- carte_data %>% filter(zone_campus == zone_id)
+    
+    if (nrow(zone_row) == 0) return(NULL)
+    
+    aqi <- zone_row$aqi_moy
+    badge_cls <- dplyr::case_when(
+      aqi < 20 ~ "badge-bon", aqi < 40 ~ "badge-modere",
+      aqi < 60 ~ "badge-mauvais", TRUE ~ "badge-danger"
+    )
+    
+    div(
+      tags$h4(zone_row$label, style = "font-weight:700; color:#111827; margin-bottom:12px;"),
+      div(style = paste0("font-size:36px; font-weight:800; color:", zone_row$couleur, ";"), aqi),
+      tags$span(zone_row$categorie, class = badge_cls),
+      tags$hr(style = "border-color:#f3f4f6; margin:14px 0;"),
+      div(style = "display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px;",
+          span("CO"), tags$b(paste(zone_row$co_moy, "ppm"))),
+      div(style = "display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px;",
+          span("CO₂"), tags$b(paste(zone_row$co2_moy, "ppm"))),
+      div(style = "display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px;",
+          span("NH₃"), tags$b(paste(zone_row$nh3_moy, "ppm"))),
+      tags$hr(style = "border-color:#f3f4f6; margin:10px 0;"),
+      div(style = "display:flex; justify-content:space-between; font-size:12px; color:#6b7280;",
+          span(paste0("🌡 ", zone_row$temp_moy, "°C")),
+          span(paste0("💧 ", zone_row$hum_moy, "%")))
+    )
+  })
+  
+  
+  } # fin server

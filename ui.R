@@ -300,8 +300,41 @@ dashboardPage(
       
       tabItem(tabName = "carte",
               h2("Carte interactive", class = "page-title"),
-              p("Page en construction...")
+              p("Heatmap du campus UFHB — cliquez sur une zone pour les détails", class = "page-subtile"),
+              
+              # Légende
+              div(style = "display:flex; align-items:center; gap:18px; margin-bottom:12px; flex-wrap:wrap;",
+                  tags$b(style = "font-size:13px; color:#374151;", "Niveau AQI :"),
+                  div(style = "display:flex; align-items:center; gap:6px;",
+                      div(style = "width:14px; height:14px; border-radius:50%; background:#22c55e;"),
+                      span(style = "font-size:13px; color:#374151;", "Bon (< 20)")),
+                  div(style = "display:flex; align-items:center; gap:6px;",
+                      div(style = "width:14px; height:14px; border-radius:50%; background:#f59e0b;"),
+                      span(style = "font-size:13px; color:#374151;", "Modéré (20-40)")),
+                  div(style = "display:flex; align-items:center; gap:6px;",
+                      div(style = "width:14px; height:14px; border-radius:50%; background:#ef4444;"),
+                      span(style = "font-size:13px; color:#374151;", "Mauvais (40-60)")),
+                  div(style = "display:flex; align-items:center; gap:6px;",
+                      div(style = "width:14px; height:14px; border-radius:50%; background:#9d174d;"),
+                      span(style = "font-size:13px; color:#374151;", "Dangereux (> 60)"))
+              ),
+      fluidRow(
+        column(8,
+              div(class = "chart-card", style = "padding: 0; overflow: hidden;",
+                  leafletOutput("carte_campus", height = "500px")
+              )
       ),
+      column(4,
+             div(class = "chart-card",
+                 div(class = "chart-header", icon("map-pin"), span("Détail de la zone")),
+                 uiOutput("carte_detail_zone")
+             )
+      )
+      ),
+      
+     
+      ),
+      
       tabItem(tabName = "temporelle",
               h2("Analyse temporelle", class = "page-title"),
               p("Page en construction de Armida")
