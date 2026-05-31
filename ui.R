@@ -1261,7 +1261,7 @@ dashboardPage(
                 column(4, div(class = "zone-card",
                               div(style = "text-align:center; padding:10px 0 12px;",
                                   tags$img(
-                                    src   = "ASSAMOI.png",
+                                    src   = "ASSAMOI.jpeg",
                                     style = "width:90px; height:90px; border-radius:50%;
                                              object-fit:cover; object-position:center top;
                                              display:block; margin:0 auto 14px auto;
@@ -1279,13 +1279,12 @@ dashboardPage(
                 )),
                 column(4, div(class = "zone-card",
                               div(style = "text-align:center; padding:10px 0 12px;",
-                                  tags$div(
+                                  tags$img(
+                                    src   = "COULIBALY.jpeg",
                                     style = "width:90px; height:90px; border-radius:50%;
-                                             background:#ffedd5; color:#ea580c;
-                                             display:flex; align-items:center;
-                                             justify-content:center; font-size:22px; font-weight:700;
-                                             margin:0 auto 14px auto; border:3px solid #ffedd5;",
-                                    "CR"
+                                             object-fit:cover; object-position:center top;
+                                             display:block; margin:0 auto 14px auto;
+                                             border:3px solid #ffedd5;"
                                   ),
                                   tags$p(style = "font-size:15px; font-weight:700; color:#111827; margin:0 0 6px 0;",
                                          "Coulibaly Ramatou"),
@@ -1334,10 +1333,25 @@ dashboardPage(
                 )
               ),
 
-              
-              
-              
-              
+
+              fluidRow(
+                column(12,
+                       div(class = "chart-card", style = "padding:16px;",
+                           div(class = "chart-header",
+                               icon("circle-play"), span("Présentation du projet")),
+                           tags$iframe(
+                             src             = "https://www.youtube.com/embed/kOF9x6umxF4",
+                             width           = "100%",
+                             height          = "480px",
+                             frameborder     = "0",
+                             allow           = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture",
+                             allowfullscreen = NA,
+                             style           = "border-radius:8px; display:block;"
+                           )
+                       )
+                )
+              )
+
       ) # fin equipe
       
       

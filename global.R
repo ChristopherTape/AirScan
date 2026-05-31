@@ -67,7 +67,7 @@ df_model <- df %>%
   select(AQI_calcule, heure, jour_index, est_weekend, temperature_C,
          humidite_pct, zone_campus) %>%
   mutate(
-    est_weekend = as.numeric(est_weekend=="TRUE"),
+    est_weekend = as.numeric(est_weekend=="True"),
     zone_num = as.numeric(as.factor(zone_campus))
   ) %>%
   na.omit()

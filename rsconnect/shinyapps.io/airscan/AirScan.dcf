@@ -1,0 +1,13 @@
+name: AirScan
+title: AirScan
+username: airscan
+account: airscan
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17446619
+bundleId: 12064478
+url: https://airscan.shinyapps.io/AirScan/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: description.html|description.qmd
