@@ -318,5 +318,208 @@ server <- function(input, output, session) {
     )
   })
   
+  #---------------------- LA PAGE TEMPORELLE--------------#
+  
+  temp_df_filtre <- reactive({
+    data_f <- df
+    
+    if (input$temp_zone != "toutes") {
+      data_f <- data_f %>% filter(zone_campus == input$temp_zone)
+    }
+    if (input$temp_periode == "semaine") {
+      data_f <- data_f %>% filter(est_weekend == "False")
+    } else if (input$temp_periode == "weekend") {
+      data_f <- data_f %>% filter(est_weekend == "True")
+    }
+    data_f
+  })
+  temp_var <- reactive({
+    switch(input$temp_polluant,
+           "AQI"  = "AQI_calcule",
+           "CO"   = "CO_ppm",
+           "CO2"  = "CO2_ppm",
+           "NH3"  = "NH3_ppm"
+    )
+  })
+  
+  temp_label <- reactive({
+    switch(input$temp_polluant,
+           "AQI" = "AQI calculé",
+           "CO"  = "CO (ppm)",
+           "CO2" = "CO₂ (ppm)",
+           "NH3" = "NH₃ (ppm)"
+    )
+  })
+  
+  # les differents Kips
+  
+  output$temp_kpis <- renderUI({
+    df_s  <- temp_df_filtre()
+    var   <- temp_var()
+    vals  <- df_s[[var]]
+    
+    # Jour le plus pollué
+    jour_pollue <- df_s %>%
+      group_by(jour_semaine, jour_index) %>%
+      summarise(moy = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+      arrange(desc(moy)) %>%
+      slice(1)
+    
+    # Heure la plus polluée
+    heure_max <- df_s %>%
+      group_by(heure) %>%
+      summarise(moy = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+      slice_max(moy, n = 1)
+    
+    # Heure la plus saine
+    heure_min <- df_s %>%
+      group_by(heure) %>%
+      summarise(moy = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+      slice_min(moy, n = 1)
+    
+    div(style = "display:flex; gap:16px; margin-bottom:4px;",
+        
+        # Jour le plus pollué
+        div(style = "flex:1; background:white; border-radius:14px; padding:20px 24px;
+                   border-left:4px solid #ef4444; box-shadow:0 1px 6px rgba(0,0,0,0.07);",
+            div(style = "font-size:11px; color:#9ca3af; text-transform:uppercase;
+                     letter-spacing:0.08em; margin-bottom:8px;",
+                icon("calendar-xmark", style="margin-right:5px;"), "Jour le plus pollué"),
+            div(style = "font-size:26px; font-weight:800; color:#111827;",
+                jour_pollue$jour_semaine),
+            div(style = "font-size:13px; color:#6b7280; margin-top:4px;",
+                paste0("Moyenne : ", round(jour_pollue$moy, 1), " ", input$temp_polluant))
+        ),
+        
+        # Heure la plus polluée
+        div(style = "flex:1; background:white; border-radius:14px; padding:20px 24px;
+                   border-left:4px solid #f59e0b; box-shadow:0 1px 6px rgba(0,0,0,0.07);",
+            div(style = "font-size:11px; color:#9ca3af; text-transform:uppercase;
+                     letter-spacing:0.08em; margin-bottom:8px;",
+                icon("arrow-trend-up", style="margin-right:5px;"), "Heure la plus polluée"),
+            div(style = "font-size:26px; font-weight:800; color:#111827;",
+                paste0(heure_max$heure, "h")),
+            div(style = "font-size:13px; color:#6b7280; margin-top:4px;",
+                paste0("Moyenne : ", round(heure_max$moy, 1), " ", input$temp_polluant))
+        ),
+        
+        # Heure la plus saine
+        div(style = "flex:1; background:white; border-radius:14px; padding:20px 24px;
+                   border-left:4px solid #22c55e; box-shadow:0 1px 6px rgba(0,0,0,0.07);",
+            div(style = "font-size:11px; color:#9ca3af; text-transform:uppercase;
+                     letter-spacing:0.08em; margin-bottom:8px;",
+                icon("arrow-trend-down", style="margin-right:5px;"), "Heure la plus saine"),
+            div(style = "font-size:26px; font-weight:800; color:#111827;",
+                paste0(heure_min$heure, "h")),
+            div(style = "font-size:13px; color:#6b7280; margin-top:4px;",
+                paste0("Moyenne : ", round(heure_min$moy, 1), " ", input$temp_polluant))
+        )
+    )
+  })
+  
+  # graphique des horaires 
+  
+  output$temp_plot_horaire <- renderPlot({
+    df_h <- temp_df_filtre() %>%
+      group_by(heure) %>%
+      summarise(
+        valeur_moy = mean(.data[[temp_var()]], na.rm = TRUE),
+        valeur_min = min(.data[[temp_var()]],  na.rm = TRUE),
+        valeur_max = max(.data[[temp_var()]],  na.rm = TRUE),
+        .groups = "drop"
+      )
+    
+    couleur_ligne <- switch(input$temp_polluant,
+                            "AQI" = "#3b82f6",
+                            "CO"  = "#ef4444",
+                            "CO2" = "#f59e0b",
+                            "NH3" = "#8b5cf6"
+    )
+    
+    ggplot(df_h, aes(x = heure, y = valeur_moy)) +
+      geom_ribbon(aes(ymin = valeur_min, ymax = valeur_max),
+                  fill = couleur_ligne, alpha = 0.12) +
+      geom_line(color = couleur_ligne, linewidth = 1.8) +
+      geom_point(aes(color = valeur_moy), size = 3.5, show.legend = FALSE) +
+      scale_color_gradient(low = "#22c55e", high = "#ef4444") +
+      scale_x_continuous(
+        breaks = seq(0, 23, 1),
+        labels = paste0(seq(0, 23, 1), "h")
+      ) +
+      labs(
+        x = "Heure de la journée",
+        y = temp_label(),
+        title = paste0("Évolution de ", temp_label(), " par heure")
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title        = element_text(size = 13, face = "bold", color = "#111827"),
+        panel.grid.minor  = element_blank(),
+        panel.grid.major  = element_line(color = "#f3f4f6"),
+        axis.text         = element_text(size = 10, color = "#6b7280"),
+        axis.text.x       = element_text(angle = 45, hjust = 1),
+        axis.title        = element_text(size = 11, color = "#374151"),
+        plot.background   = element_rect(fill = "white", color = NA),
+        panel.background  = element_rect(fill = "white", color = NA)
+      )
+  }, bg = "white")
+  
+  # graphique par jour 
+  
+  output$temp_plot_jour <- renderPlot({
+    
+    polluant_actuel <- input$temp_polluant
+    var_actuelle    <- temp_var()
+    
+    df_j <- temp_df_filtre() %>%
+      group_by(jour_semaine, jour_index) %>%
+      summarise(
+        valeur_moy = round(mean(.data[[var_actuelle]], na.rm = TRUE), 1),
+        .groups = "drop"
+      ) %>%
+      arrange(jour_index) %>%
+      mutate(jour_semaine = factor(jour_semaine, levels = unique(jour_semaine)))
+    
+    val_max <- max(df_j$valeur_moy)
+    val_min <- min(df_j$valeur_moy)
+    val_moy <- mean(df_j$valeur_moy)
+    
+    df_j <- df_j %>%
+      mutate(couleur = case_when(
+        polluant_actuel == "AQI" ~ couleur_aqi(valeur_moy),
+        valeur_moy == val_max    ~ "#ef4444",
+        valeur_moy == val_min    ~ "#22c55e",
+        TRUE                     ~ "#3b82f6"
+      ))
+    
+    ggplot(df_j, aes(x = jour_semaine, y = valeur_moy, fill = couleur)) +
+      geom_col(width = 0.55, show.legend = FALSE) +
+      geom_text(aes(label = valeur_moy, color = couleur),
+                vjust = -0.6, size = 4.2, fontface = "bold",
+                show.legend = FALSE) +
+      geom_hline(yintercept = val_moy,
+                 linetype = "dashed", color = "#9ca3af", linewidth = 0.8) +
+      annotate("text", x = 0.6, y = val_moy,
+               label = paste0("Moy. ", round(val_moy, 1)),
+               color = "#9ca3af", size = 3.2, vjust = -0.5) +
+      scale_fill_identity() +
+      scale_color_identity() +
+      scale_y_continuous(limits = c(0, val_max * 1.25)) +
+      labs(x = NULL, y = temp_label(),
+           title = paste0(temp_label(), " moyen par jour de semaine")) +
+      theme_minimal() +
+      theme(
+        plot.title         = element_text(size = 13, face = "bold", color = "#111827"),
+        panel.grid.minor   = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(color = "#f3f4f6"),
+        axis.text.x        = element_text(size = 11, color = "#374151", face = "bold"),
+        axis.text.y        = element_text(size = 10, color = "#6b7280"),
+        axis.title.y       = element_text(size = 11, color = "#374151"),
+        plot.background    = element_rect(fill = "white", color = NA),
+        panel.background   = element_rect(fill = "white", color = NA)
+      )
+  }, bg = "white")
+  
   
   } # fin server

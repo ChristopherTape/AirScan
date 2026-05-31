@@ -336,9 +336,73 @@ dashboardPage(
       ),
       
       tabItem(tabName = "temporelle",
+              
               h2("Analyse temporelle", class = "page-title"),
-              p("Page en construction de Armida")
-      ),
+              p("Évolution de la qualité de l'air par zone, polluant et période", class = "page-subtitle"),
+              
+              # Filtres
+              fluidRow(
+                column(4,
+                       div(class = "chart-card",
+                           div(class = "chart-header", icon("map-pin"), span("Zone")),
+                           selectInput("temp_zone", label = NULL,
+                                       choices = c(
+                                         "Toutes les zones" = "toutes",
+                                         "Parking Entrée"   = "Parking_Entree",
+                                         "Restaurant U"     = "Restaurant_U",
+                                         "Amphithéâtres"    = "Amphi_Central",
+                                         "Cités Univ."      = "Cites_Univ",
+                                         "Zone Verte"       = "Zone_Verte"
+                                       ),
+                                       selected = "toutes", width = "100%")
+                       )
+                ),
+                column(4,
+                       div(class = "chart-card",
+                           div(class = "chart-header", icon("flask"), span("Polluant")),
+                           selectInput("temp_polluant", label = NULL,
+                                       choices = c("AQI", "CO", "CO2", "NH3"),
+                                       selected = "AQI", width = "100%")
+                       )
+                ),
+                column(4,
+                       div(class = "chart-card",
+                           div(class = "chart-header", icon("calendar"), span("Période")),
+                           selectInput("temp_periode", label = NULL,
+                                       choices = c("Tous" = "tous", "Semaine" = "semaine", "Weekend" = "weekend"),
+                                       selected = "tous", width = "100%")
+                       )
+                )
+              ),
+              
+              # KPIs
+              fluidRow(
+                column(12,
+                       uiOutput("temp_kpis")
+                )
+              ),
+              
+              # Courbe horaire
+              fluidRow(
+                column(12,
+                       div(class = "chart-card",
+                           plotOutput("temp_plot_horaire", height = "300px")
+                       )
+                )
+              ),
+              
+              # Barplot jour
+              fluidRow(
+                column(12,
+                       div(class = "chart-card",
+                           plotOutput("temp_plot_jour", height = "280px")
+                       )
+                )
+              )
+              
+      ), 
+      
+      
       tabItem(tabName = "prediction",
               h2("Prediction ML", class = "page-title"),
               p("Page en construction...")
