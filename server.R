@@ -1,18 +1,10 @@
-#   AirScan CI — server.R       
+# AirScan CI — server.R
 
-# La fonction server prend toujours input et output 
-# input  = ce que l'utilisateur envoie (clics, filtres...)
-# output = ce que tu envoies vers l'écran
 server <- function(input, output, session) {
   
   
   
-  # DONNÉES  On calcule les stats dont on a besoin
-  
-  
-  # Valeurs moyennes par zone
-  # On pré-calcule une fois pour toutes les pages
-  # group_by() + summarise() = regrouper et résumer
+  # Moyennes par zone — pré-calculées une fois pour toutes les pages
   stats_zones <- df %>%
     group_by(zone_campus) %>%
     summarise(
@@ -28,21 +20,14 @@ server <- function(input, output, session) {
   
 
   # KPI 1 — AQI moyen campus
-  # renderText() envoie du texte simple vers textOutput()
-
   output$aqi_moyen <- renderText({
-    # mean() = moyenne de toute la colonne AQI
-    # round(..., 1) = arrondir à 1 décimale
     round(mean(df$AQI_calcule, na.rm = TRUE), 1)
   })
   
-  # Le badge coloré sous l'AQI
-  # renderUI() envoie du HTML vers uiOutput()
+  # Badge coloré sous l'AQI
   output$aqi_badge <- renderUI({
     val <- mean(df$AQI_calcule, na.rm = TRUE)
-    
-    # On choisit la classe CSS selon la valeur
-    # case_when() = if/else multiple (tidyverse)
+
     classe <- dplyr::case_when(
       val < 20 ~ "badge-bon",
       val < 40 ~ "badge-modere",
@@ -57,7 +42,6 @@ server <- function(input, output, session) {
       TRUE     ~ "Dangereux"
     )
     
-    # tags$span() crée une balise HTML <span>
     tags$span(texte, class = classe)
   })
   
@@ -74,11 +58,8 @@ server <- function(input, output, session) {
   })
   
   output$co_badge <- renderUI({
-    # On veut afficher quelle zone a le CO max
-    # which.max() donne l'index de la valeur max
     zone_max <- stats_zones$zone_campus[which.max(stats_zones$co_moy)]
-    # Raccourcir le nom pour l'affichage
-    label <- gsub("_", " ", zone_max) # remplace _ par espace
+    label <- gsub("_", " ", zone_max)
     label <- gsub("Parking Entree", "Parking", label)
     tags$span(label, class = "badge-mauvais")
   })
@@ -107,7 +88,6 @@ server <- function(input, output, session) {
   # KPI 4 — Zone la plus saine
   
   output$zone_saine <- renderUI({
-    # which.min() = indice de la valeur MINIMUM (= zone la plus propre)
     zone_min <- stats_zones$zone_campus[which.min(stats_zones$aqi_moy)]
     label <- gsub("_", " ", zone_min)
     tags$span(label)
@@ -120,12 +100,10 @@ server <- function(input, output, session) {
   
   
   
-  # GRAPHIQUE Barres AQI par zone
-  # renderPlot() crée un graphique ggplot2
-  
+  # Barplot AQI par zone
   output$aqi_barplot <- renderPlot({
-    
-    # Couleurs selon le niveau d'AQI
+
+    # Couleur par niveau d'AQI
     couleurs <- dplyr::case_when(
       stats_zones$aqi_moy >= 40 ~ "#ef4444",  # rouge
       stats_zones$aqi_moy >= 20 ~ "#f59e0b",  # orange
@@ -143,39 +121,23 @@ server <- function(input, output, session) {
       TRUE ~ stats_zones$zone_campus
     )
     
-    # Trier du plus pollué au moins pollué
-    ordre <- order(stats_zones$aqi_moy, decreasing = FALSE)
-    
-    # Créer le graphique avec ggplot2
-    # aes() = aesthetic = quoi mettre en X et Y
     ggplot(stats_zones, aes(
-      x    = reorder(labels, aqi_moy),  # trier par valeur
+      x    = reorder(labels, aqi_moy),
       y    = aqi_moy,
       fill = couleurs
     )) +
-      # geom_col() = barres horizontales (avec coord_flip)
       geom_col(width = 0.55, show.legend = FALSE) +
-      
-      # Afficher la valeur au bout de chaque barre
       geom_text(aes(label = aqi_moy),
                 hjust = -0.2, size = 3.8,
                 color = couleurs, fontface = "bold") +
-      
-      # Couleurs manuelles
       scale_fill_identity() +
-      
-      # Limiter l'axe X pour laisser de la place aux labels
       scale_y_continuous(limits = c(0, 55)) +
-      
-      # Retourner le graphique (barres horizontales)
       coord_flip() +
-      
-      # Supprimer le fond gris par défaut de ggplot
       theme_minimal() +
       theme(
-        panel.grid       = element_blank(),       # pas de grille
-        axis.title       = element_blank(),       # pas de titres d'axes
-        axis.text.x      = element_blank(),       # pas de chiffres en bas
+        panel.grid       = element_blank(),
+        axis.title       = element_blank(),
+        axis.text.x      = element_blank(),
         axis.text.y      = element_text(size = 12, color = "#374151"),
         plot.background  = element_rect(fill = "white", color = NA),
         panel.background = element_rect(fill = "white", color = NA)
@@ -184,10 +146,8 @@ server <- function(input, output, session) {
   
   
   
-  # ZONE CARDS  Parking, Restaurant, Amphithéâtres
-  # On filtre les données par zone avec filter()
-  
-  
+  # ZONE CARDS
+
   # Parking
   output$parking_co   <- renderText({ stats_zones %>% filter(zone_campus == "Parking_Entree") %>% pull(co_moy) })
   output$parking_co2  <- renderText({ stats_zones %>% filter(zone_campus == "Parking_Entree") %>% pull(co2_moy) })

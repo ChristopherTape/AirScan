@@ -147,7 +147,7 @@ dashboardPage(
                        div(class = "zone-card",
                            div(class = "zone-card-header",
                                span("Parking Entree"),
-                               div(class = "zone-dot dot-danger")
+                               div(class = "zone-dot dot-warning")
                            ),
                            div(class = "zone-metrics",
                                div(class = "zone-metric",
@@ -850,45 +850,363 @@ dashboardPage(
       ), # fin sante
       
       tabItem(tabName = "balise",
-              h2("La Balise", class = "page-title"),
-              p("Page en construction...")
-      ),
+
+              h2("La Balise AirScan", class = "page-title"),
+              p("Dispositif de mesure concu et assemble par l'equipe — collecte, geolocalise et transmet les donnees en temps reel", class = "page-subtitle"),
+
+              # ── Photos ──────────────────────────────────────────────
+              fluidRow(
+                column(6,
+                       div(class = "chart-card", style = "padding:12px;",
+                           tags$img(src = "B1.jpeg",
+                                    style = "width:100%; border-radius:8px; object-fit:cover; max-height:340px;",
+                                    alt  = "Balise AirScan — vue dessus"),
+                           tags$p(style = "font-size:12px; color:#6b7280; text-align:center; margin:8px 0 0;",
+                                  "Vue d'ensemble — Arduino Mega, SIM900, GPS et capteurs MQ")
+                       )
+                ),
+                column(6,
+                       div(class = "chart-card", style = "padding:12px;",
+                           tags$img(src = "B2.jpeg",
+                                    style = "width:100%; border-radius:8px; object-fit:cover; max-height:340px;",
+                                    alt  = "Balise AirScan — vue capteurs"),
+                           tags$p(style = "font-size:12px; color:#6b7280; text-align:center; margin:8px 0 0;",
+                                  "Detail capteurs — MQ-135, MQ-7 et module GPS NEO-6M")
+                       )
+                )
+              ),
+
+              # ── Flux de données ─────────────────────────────────────
+              fluidRow(
+                column(12,
+                       div(class = "chart-card",
+                           div(class = "chart-header", icon("route"), span("Architecture du systeme de collecte")),
+
+                           div(style = "display:flex; align-items:center; justify-content:center;
+                                        gap:0; flex-wrap:wrap; padding:8px 0 16px;",
+
+                               # Etape 1 — Balise
+                               div(style = "display:flex; flex-direction:column; align-items:center;
+                                            background:#f0fdf4; border:1px solid #bbf7d0;
+                                            border-radius:12px; padding:16px 20px; min-width:130px; text-align:center;",
+                                   icon("microchip", style = "font-size:22px; color:#16a34a; margin-bottom:8px;"),
+                                   tags$b(style = "font-size:13px; color:#111827;", "Balise"),
+                                   tags$span(style = "font-size:11px; color:#6b7280; margin-top:4px;",
+                                             "Arduino Mega"),
+                                   tags$span(style = "font-size:11px; color:#6b7280;",
+                                             "Capteurs MQ + GPS + BMP180")
+                               ),
+
+                               # Fleche
+                               div(style = "padding:0 10px; font-size:22px; color:#9ca3af;", HTML("&rarr;")),
+
+                               # Etape 2 — SIM900
+                               div(style = "display:flex; flex-direction:column; align-items:center;
+                                            background:#eff6ff; border:1px solid #bfdbfe;
+                                            border-radius:12px; padding:16px 20px; min-width:130px; text-align:center;",
+                                   icon("signal", style = "font-size:22px; color:#2563eb; margin-bottom:8px;"),
+                                   tags$b(style = "font-size:13px; color:#111827;", "SIM900"),
+                                   tags$span(style = "font-size:11px; color:#6b7280; margin-top:4px;",
+                                             "Transmission GPRS"),
+                                   tags$span(style = "font-size:11px; color:#6b7280;",
+                                             "HTTP POST toutes les 5 min")
+                               ),
+
+                               div(style = "padding:0 10px; font-size:22px; color:#9ca3af;", HTML("&rarr;")),
+
+                               # Etape 3 — Serveur
+                               div(style = "display:flex; flex-direction:column; align-items:center;
+                                            background:#fff7ed; border:1px solid #fed7aa;
+                                            border-radius:12px; padding:16px 20px; min-width:130px; text-align:center;",
+                                   icon("server", style = "font-size:22px; color:#ea580c; margin-bottom:8px;"),
+                                   tags$b(style = "font-size:13px; color:#111827;", "Serveur"),
+                                   tags$span(style = "font-size:11px; color:#6b7280; margin-top:4px;",
+                                             "Reception + enrichissement"),
+                                   tags$span(style = "font-size:11px; color:#6b7280;",
+                                             "Appel API Open-Meteo")
+                               ),
+
+                               div(style = "padding:0 10px; font-size:22px; color:#9ca3af;", HTML("&rarr;")),
+
+                               # Etape 4 — CSV
+                               div(style = "display:flex; flex-direction:column; align-items:center;
+                                            background:#fdf4ff; border:1px solid #e9d5ff;
+                                            border-radius:12px; padding:16px 20px; min-width:130px; text-align:center;",
+                                   icon("file-csv", style = "font-size:22px; color:#7c3aed; margin-bottom:8px;"),
+                                   tags$b(style = "font-size:13px; color:#111827;", "Fichier CSV"),
+                                   tags$span(style = "font-size:11px; color:#6b7280; margin-top:4px;",
+                                             "Stockage persistant"),
+                                   tags$span(style = "font-size:11px; color:#6b7280;",
+                                             "airscan_data_r.csv")
+                               ),
+
+                               div(style = "padding:0 10px; font-size:22px; color:#9ca3af;", HTML("&rarr;")),
+
+                               # Etape 5 — Dashboard
+                               div(style = "display:flex; flex-direction:column; align-items:center;
+                                            background:#ecfdf5; border:2px solid #22c55e;
+                                            border-radius:12px; padding:16px 20px; min-width:130px; text-align:center;",
+                                   icon("chart-bar", style = "font-size:22px; color:#16a34a; margin-bottom:8px;"),
+                                   tags$b(style = "font-size:13px; color:#111827;", "Dashboard"),
+                                   tags$span(style = "font-size:11px; color:#6b7280; margin-top:4px;",
+                                             "Visualisation"),
+                                   tags$span(style = "font-size:11px; color:#6b7280;",
+                                             "AirScan CI")
+                               )
+                           )
+                       )
+                )
+              ),
+
+              # ── Composants ──────────────────────────────────────────
+              fluidRow(
+                column(12,
+                       tags$h4(style = "font-size:16px; font-weight:700; color:#111827;
+                                        margin:0 0 14px 0;",
+                               icon("puzzle-piece", style="margin-right:8px; color:#6b7280;"),
+                               "Composants de la balise")
+                )
+              ),
+
+              fluidRow(
+
+                # Arduino Mega
+                column(4,
+                       div(class = "zone-card",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               div(style = "width:44px; height:44px; border-radius:10px; background:#dbeafe;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                                   icon("microchip", style = "color:#2563eb; font-size:18px;")),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 4px;",
+                                        "Arduino Mega 2560"),
+                                 tags$p(style = "font-size:12px; color:#374151; line-height:1.6; margin:0;",
+                                        "Cerveau de la balise. Lit les capteurs via ses entrees analogiques et ses ports serie,
+                                         calcule l'AQI, puis orchestre l'envoi des donnees via le module SIM900.
+                                         Son grand nombre de pins (54 num. / 16 analogiques) permet de connecter
+                                         simultanement tous les peripheriques.")
+                               )
+                           )
+                       )
+                ),
+
+                # MQ-135
+                column(4,
+                       div(class = "zone-card",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               div(style = "width:44px; height:44px; border-radius:10px; background:#dcfce7;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                                   icon("wind", style = "color:#16a34a; font-size:18px;")),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 4px;",
+                                        "Capteur MQ-135"),
+                                 tags$p(style = "font-size:12px; color:#374151; line-height:1.6; margin:0;",
+                                        "Mesure le CO₂ (dioxyde de carbone) et le NH₃ (ammoniac).
+                                         Fonctionne par variation de resistance d'un element semi-conducteur chauffe :
+                                         plus la concentration en gaz est elevee, plus la resistance baisse.
+                                         La sortie analogique (ADC) est convertie en ppm via une courbe de calibration.")
+                               )
+                           )
+                       )
+                ),
+
+                # MQ-7
+                column(4,
+                       div(class = "zone-card",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               div(style = "width:44px; height:44px; border-radius:10px; background:#fee2e2;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                                   icon("fire", style = "color:#dc2626; font-size:18px;")),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 4px;",
+                                        "Capteur MQ-7"),
+                                 tags$p(style = "font-size:12px; color:#374151; line-height:1.6; margin:0;",
+                                        "Specialise dans la detection du monoxyde de carbone (CO), gaz inodore et
+                                         potentiellement mortel. Utilise un cycle thermique chaud/froid pour maximiser
+                                         la precision : chauffage a 5 V puis mesure a 1,4 V.
+                                         Valeur cle pour detecter les emissions du trafic automobile au parking.")
+                               )
+                           )
+                       )
+                )
+              ),
+
+              fluidRow(
+
+                # BMP180
+                column(4,
+                       div(class = "zone-card",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               div(style = "width:44px; height:44px; border-radius:10px; background:#fff7ed;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                                   icon("gauge-high", style = "color:#ea580c; font-size:18px;")),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 4px;",
+                                        "BMP180 — Module GY-68"),
+                                 tags$p(style = "font-size:12px; color:#374151; line-height:1.6; margin:0;",
+                                        "Capteur de pression atmospherique et d'altitude barometrique.
+                                         Communique avec l'Arduino via le bus I²C (SDA/SCL).
+                                         Fournit la pression en hPa et l'altitude en metres,
+                                         permettant de contextualiser les mesures de polluants selon
+                                         les conditions atmospheriques locales.")
+                               )
+                           )
+                       )
+                ),
+
+                # GPS NEO-6M
+                column(4,
+                       div(class = "zone-card",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               div(style = "width:44px; height:44px; border-radius:10px; background:#eff6ff;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                                   icon("location-dot", style = "color:#2563eb; font-size:18px;")),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 4px;",
+                                        "GPS GYNEO6MV2 (NEO-6M)"),
+                                 tags$p(style = "font-size:12px; color:#374151; line-height:1.6; margin:0;",
+                                        "Module GPS UART qui fournit les coordonnees precises (latitude/longitude)
+                                         de chaque mesure. Ces coordonnees sont envoyees au serveur, qui les utilise
+                                         pour interroger l'API Open-Meteo et obtenir
+                                         la temperature et l'humidite correspondant a l'emplacement exact
+                                         de la balise au moment de la mesure.")
+                               )
+                           )
+                       )
+                ),
+
+                # SIM900
+                column(4,
+                       div(class = "zone-card",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               div(style = "width:44px; height:44px; border-radius:10px; background:#fdf4ff;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                                   icon("signal", style = "color:#7c3aed; font-size:18px;")),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 4px;",
+                                        "Module SIM900 (GSM/GPRS)"),
+                                 tags$p(style = "font-size:12px; color:#374151; line-height:1.6; margin:0;",
+                                        "Assure la transmission des donnees via le reseau cellulaire 2G (GPRS).
+                                         A chaque cycle de mesure, il etablit une connexion HTTP POST
+                                         vers le serveur distant et lui envoie toutes les valeurs collectees
+                                         (gaz, pression, coordonnees GPS). Aucune infrastructure Wi-Fi requise :
+                                         la balise fonctionne partout sur le campus.")
+                               )
+                           )
+                       )
+                )
+              ),
+
+              fluidRow(
+                column(4,
+                       div(class = "zone-card",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               div(style = "width:44px; height:44px; border-radius:10px; background:#f0fdf4;
+                                            display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                                   icon("battery-full", style = "color:#16a34a; font-size:18px;")),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 4px;",
+                                        "Power Bank"),
+                                 tags$p(style = "font-size:12px; color:#374151; line-height:1.6; margin:0;",
+                                        "Alimentation portable rechargeable qui rend la balise totalement autonome.
+                                         Permet de la deployer n'importe ou sur le campus sans dependance
+                                         a une prise secteur, pour des sessions de mesure de plusieurs heures.")
+                               )
+                           )
+                       )
+                ),
+                column(8)
+              ),
+
+              # ── Note Open-Meteo ──────────────────────────────────────
+              fluidRow(
+                column(12,
+                       div(style = "background:#eff6ff; border:1px solid #bfdbfe;
+                                    border-radius:10px; padding:16px 20px; margin-bottom:16px;",
+                           div(style = "display:flex; align-items:flex-start; gap:14px;",
+                               icon("cloud-sun", style = "font-size:22px; color:#2563eb; margin-top:2px; flex-shrink:0;"),
+                               div(
+                                 tags$p(style = "font-size:14px; font-weight:700; color:#111827; margin:0 0 6px;",
+                                        "Temperature et humidite — API Open-Meteo"),
+                                 tags$p(style = "font-size:13px; color:#374151; line-height:1.7; margin:0;",
+                                        "La balise ne comporte pas de capteur de temperature/humidite dedie.
+                                         A la reception de chaque mesure, le serveur utilise les ",
+                                        tags$strong("coordonnees GPS transmises par le module NEO-6M"),
+                                        " pour interroger l'",
+                                        tags$strong("API Open-Meteo"),
+                                        " (open-meteo.com), une source meteorologique libre et gratuite.
+                                         L'API retourne la temperature en °C et l'humidite relative (%)
+                                         correspondant exactement a la position et a l'heure de la mesure.
+                                         Ces valeurs sont ensuite ajoutees au fichier CSV et exploitees
+                                         dans les analyses de correlation et de sante du dashboard.")
+                               )
+                           )
+                       )
+                )
+              )
+
+      ), # fin balise
       tabItem(tabName = "equipe",
               h2("L'equipe", class = "page-title"),
               p("Membre de l'équipe"),
               
               fluidRow(
                 column(4, div(class = "zone-card",
-                              div(style = "text-align:center; padding:10px 0 6px;",
-                                  tags$div(style = "width:64px; height:64px; border-radius:50%; background:#dbeafe;
-                                color:#2563eb; display:flex; align-items:center;
-                                justify-content:center; font-size:18px; font-weight:700;
-                                margin:0 auto 16px auto;", "TD"),
+                              div(style = "text-align:center; padding:10px 0 12px;",
+                                  tags$img(
+                                    src   = "TAPE.png",
+                                    style = "width:90px; height:90px; border-radius:50%;
+                                             object-fit:cover; object-position:center top;
+                                             display:block; margin:0 auto 14px auto;
+                                             border:3px solid #dbeafe;"
+                                  ),
                                   tags$p(style = "font-size:15px; font-weight:700; color:#111827; margin:0 0 6px 0;",
                                          "Tape Doubahi Jean Christopher"),
-                                  
+                                  tags$span(
+                                    style = "background:#eff6ff; color:#2563eb; border-radius:20px;
+                                             font-size:11px; font-weight:600; padding:3px 10px;
+                                             display:inline-block;",
+                                    "Licence MIAGE"
+                                  )
                               )
                 )),
                 column(4, div(class = "zone-card",
-                              div(style = "text-align:center; padding:10px 0 6px;",
-                                  tags$div(style = "width:64px; height:64px; border-radius:50%; background:#dcfce7;
-                                color:#16a34a; display:flex; align-items:center;
-                                justify-content:center; font-size:18px; font-weight:700;
-                                margin:0 auto 16px auto;", "AA"),
+                              div(style = "text-align:center; padding:10px 0 12px;",
+                                  tags$img(
+                                    src   = "ASSAMOI.png",
+                                    style = "width:90px; height:90px; border-radius:50%;
+                                             object-fit:cover; object-position:center top;
+                                             display:block; margin:0 auto 14px auto;
+                                             border:3px solid #dcfce7;"
+                                  ),
                                   tags$p(style = "font-size:15px; font-weight:700; color:#111827; margin:0 0 6px 0;",
                                          "Assamoi Armida Yassine"),
-                                  
+                                  tags$span(
+                                    style = "background:#f0fdf4; color:#15803d; border-radius:20px;
+                                             font-size:11px; font-weight:600; padding:3px 10px;
+                                             display:inline-block;",
+                                    "Licence Statistique & Économie Appliquée"
+                                  )
                               )
                 )),
                 column(4, div(class = "zone-card",
-                              div(style = "text-align:center; padding:10px 0 6px;",
-                                  tags$div(style = "width:64px; height:64px; border-radius:50%; background:#ffedd5;
-                                color:#ea580c; display:flex; align-items:center;
-                                justify-content:center; font-size:18px; font-weight:700;
-                                margin:0 auto 16px auto;", "CR"),
+                              div(style = "text-align:center; padding:10px 0 12px;",
+                                  tags$div(
+                                    style = "width:90px; height:90px; border-radius:50%;
+                                             background:#ffedd5; color:#ea580c;
+                                             display:flex; align-items:center;
+                                             justify-content:center; font-size:22px; font-weight:700;
+                                             margin:0 auto 14px auto; border:3px solid #ffedd5;",
+                                    "CR"
+                                  ),
                                   tags$p(style = "font-size:15px; font-weight:700; color:#111827; margin:0 0 6px 0;",
                                          "Coulibaly Ramatou"),
-                                  
+                                  tags$span(
+                                    style = "background:#fff7ed; color:#c2410c; border-radius:20px;
+                                             font-size:11px; font-weight:600; padding:3px 10px;
+                                             display:inline-block;",
+                                    "Licence Statistique & Économie Appliquée"
+                                  )
                               )
                 ))
               ),
@@ -909,14 +1227,33 @@ dashboardPage(
                 ))
               ),
               
+              # Bandeau formation commun aux trois membres
+              fluidRow(
+                column(12,
+                       div(style = "background:#f0fdf4; border:1px solid #bbf7d0;
+                                    border-radius:10px; padding:14px 20px; margin-bottom:16px;
+                                    display:flex; align-items:center; gap:14px;",
+                           div(style = "width:40px; height:40px; border-radius:50%; background:#dcfce7;
+                                        display:flex; align-items:center; justify-content:center; flex-shrink:0;",
+                               icon("graduation-cap", style = "color:#16a34a; font-size:16px;")),
+                           div(
+                             tags$p(style = "font-size:13px; font-weight:700; color:#111827; margin:0 0 2px 0;",
+                                    "Master 1 — Data Science"),
+                             tags$p(style = "font-size:12px; color:#6b7280; margin:0;",
+                                    "UFR Mathématiques-Informatique · Université Félix Houphouët-Boigny de Cocody · Abidjan 2025-2026")
+                           )
+                       )
+                )
+              ),
+
               fluidRow(
                 column(6, div(class = "chart-card",
                               div(class = "chart-header", icon("circle-info"), span("A propos du projet")),
                               tags$p(style = "font-size:13px; color:#374151; line-height:1.7; margin:0;",
-                                     "AirScan est un projet étudiant devéloppe dans le cadre du Master Data Science
-               a l'université Félix Houphouet-Boigny de Cocody. L'objectif est de surveiller
-               la qualité de l'air sur le campus et identifier les zones a risque pour la sante
-               des étudiants et du personnel.")
+                                     "AirScan CI est un projet étudiant développé dans le cadre du Master 1 Data Science
+               à l'UFR Mathématiques-Informatique de l'Université Félix Houphouët-Boigny de Cocody.
+               L'objectif est de surveiller la qualité de l'air sur le campus et d'identifier
+               les zones à risque pour la santé des étudiants et du personnel.")
                 ))
               )
               

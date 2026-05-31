@@ -10,7 +10,7 @@ library(corrplot)
 
 df <- read.csv("data/airscan_data_r.csv", stringsAsFactors = FALSE)
 
-#les coordonnées des zones 
+# Coordonnées GPS des zones
 coords_zones <- data.frame(
   zone_campus = c("Parking_Entree", "Restaurant_U", "Amphi_Central", "Cites_Univ", "Zone_Verte"),
   lat = c(5.348818, 5.341344, 5.344578, 5.337946, 5.340596),
@@ -18,8 +18,6 @@ coords_zones <- data.frame(
   label = c("Parking Entrée", "Restaurant U", "Amphithéâtres", "Cités Univ.", "Zone Verte"),
   stringsAsFactors = FALSE
 )
-
-# les coordonnées des zones
 
 zones_polygones <- list(
   Parking_Entree = data.frame(
@@ -44,7 +42,7 @@ zones_polygones <- list(
   )
 )
 
-# les fonctions pour les couleurs et les labels 
+# Fonctions utilitaires AQI
 couleur_aqi <- function (aqi) {
   dplyr :: case_when(
     aqi < 20  ~ "#22c55e",
@@ -63,7 +61,7 @@ label_aqi <- function (aqi) {
   )
 }
 
-# le modèle random forest 
+# Modèle Random Forest — entraîné au chargement
 set.seed(42)
 df_model <- df %>%
   select(AQI_calcule, heure, jour_index, est_weekend, temperature_C,
