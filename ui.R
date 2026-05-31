@@ -404,9 +404,97 @@ dashboardPage(
       
       
       tabItem(tabName = "prediction",
-              h2("Prediction ML", class = "page-title"),
-              p("Page en construction...")
-      ),
+              
+              h2("Prédiction ML", class = "page-title"),
+              p("Prédiction de l'AQI par Random Forest selon les conditions choisies", class = "page-subtitle"),
+              
+              fluidRow(
+                # Filtres
+                column(4,
+                       div(class = "chart-card",
+                           div(class = "chart-header", icon("sliders"), span("Paramètres de prédiction")),
+                           selectInput("pred_zone", "Zone",
+                                       choices = c(
+                                         "Amphithéâtres"  = "Amphi_Central",
+                                         "Parking Entrée" = "Parking_Entree",
+                                         "Restaurant U"   = "Restaurant_U",
+                                         "Cités Univ."    = "Cites_Univ",
+                                         "Zone Verte"     = "Zone_Verte"
+                                       ), width = "100%"),
+                           sliderInput("pred_heure", "Heure de la journée",
+                                       min = 0, max = 23, value = 12, step = 1, width = "100%"),
+                           selectInput("pred_jour", "Jour de la semaine",
+                                       choices = c(
+                                         "Lundi"    = 1,
+                                         "Mardi"    = 2,
+                                         "Mercredi" = 3,
+                                         "Jeudi"    = 4,
+                                         "Vendredi" = 5,
+                                         "Samedi"   = 6,
+                                         "Dimanche" = 7
+                                       ),
+                                       selected = 1, width = "100%"
+                           ),
+                           sliderInput("pred_temp", "Température (°C)",
+                                       min = 20, max = 40, value = 28, step = 0.5, width = "100%"),
+                           sliderInput("pred_hum", "Humidité (%)",
+                                       min = 30, max = 100, value = 70, step = 1, width = "100%")
+                       )
+                ),
+                
+                # Résultat + courbe 24h
+                column(8,
+                       div(class = "chart-card",
+                           div(class = "chart-header", icon("brain"), span("Résultat de la prédiction")),
+                           uiOutput("pred_result_card")
+                       ),
+                       br(),
+                       div(class = "chart-card",
+                           plotOutput("pred_courbe_24h", height = "260px")
+                       )
+                )
+              ),
+              
+              fluidRow(
+                column(6,
+                       div(class = "chart-card",
+                           plotOutput("pred_compare_plot", height = "260px")
+                       )
+                ),
+                column(6,
+                       div(class = "chart-card",
+                           plotOutput("pred_importance_plot", height = "260px")
+                       )
+                )
+              ),
+              
+              fluidRow(
+                column(12,
+                       div(class = "chart-card",
+                           div(style = "display:flex; gap:40px; align-items:center; padding:8px 0;",
+                               div(
+                                 div(style = "font-size:11px; color:#9ca3af; text-transform:uppercase;
+                         letter-spacing:0.08em;", "Performance du modèle"),
+                                 div(style = "font-size:22px; font-weight:800; color:#1d4ed8;",
+                                     textOutput("rf_rsq")),
+                                 div(style = "font-size:22px; font-weight:800; color:#7c3aed;",
+                                     textOutput("rf_rmse"))
+                               ),
+                               div(style = "font-size:12px; color:#6b7280; max-width:400px;",
+                                   "Le modèle Random Forest a été entraîné
+             avec 100 arbres de décision. Un R² proche de 1 indique
+             une excellente capacité prédictive."
+                               )
+                           )
+                       )
+                )
+              )
+              
+      ), # fin prediction
+      
+      
+      
+      
       tabItem(tabName = "correlations",
               h2("Correlations", class = "page-title"),
               p("Matrice de corrélation"),
@@ -958,7 +1046,7 @@ dashboardPage(
                 )
               ),
 
-              # ── Composants ──────────────────────────────────────────
+              # Composants 
               fluidRow(
                 column(12,
                        tags$h4(style = "font-size:16px; font-weight:700; color:#111827;

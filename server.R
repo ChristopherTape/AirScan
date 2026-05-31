@@ -85,7 +85,7 @@ server <- function(input, output, session) {
   
   
   
-  # KPI 4 — Zone la plus saine
+  # KPI 4  Zone la plus saine
   
   output$zone_saine <- renderUI({
     zone_min <- stats_zones$zone_campus[which.min(stats_zones$aqi_moy)]
@@ -316,26 +316,43 @@ server <- function(input, output, session) {
   output$temp_kpis <- renderUI({
     df_s  <- temp_df_filtre()
     var   <- temp_var()
-    vals  <- df_s[[var]]
     
-    # Jour le plus pollué
+    # Sécurité 1 : Arrête le rendu si les données ou les variables n'existent pas encore
+    req(df_s, var, nrow(df_s) > 0)
+    
+    # Jour le plus pollué (with_ties = FALSE évite les ex æquo multiples)
     jour_pollue <- df_s %>%
       group_by(jour_semaine, jour_index) %>%
       summarise(moy = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
-      arrange(desc(moy)) %>%
-      slice(1)
+      slice_max(moy, n = 1, with_ties = FALSE)
     
-    # Heure la plus polluée
+    # Heure la plus polluée (with_ties = FALSE prend la première en cas d'égalité)
     heure_max <- df_s %>%
       group_by(heure) %>%
       summarise(moy = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
-      slice_max(moy, n = 1)
+      slice_max(moy, n = 1, with_ties = FALSE)
     
     # Heure la plus saine
     heure_min <- df_s %>%
       group_by(heure) %>%
       summarise(moy = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
-      slice_min(moy, n = 1)
+      slice_min(moy, n = 1, with_ties = FALSE)
+    
+    # Sécurité 2 : Si un calcul échoue et renvoie un tableau vide, on stoppe le rendu HTML
+    req(nrow(jour_pollue) > 0, nrow(heure_max) > 0, nrow(heure_min) > 0)
+    
+    # Sécurité 3 : On extrait la première valeur pour garantir une longueur stricte de 1
+    jp_nom  <- jour_pollue$jour_semaine[1]
+    jp_moy  <- round(jour_pollue$moy[1], 1)
+    
+    hm_heur <- heure_max$heure[1]
+    hm_moy  <- round(heure_max$moy[1], 1)
+    
+    hn_heur <- heure_min$heure[1]
+    hn_moy  <- round(heure_min$moy[1], 1)
+    
+    # Récupération sécurisée de l'unité
+    polluant_unit <- if (!is.null(input$temp_polluant)) input$temp_polluant else ""
     
     div(style = "display:flex; gap:16px; margin-bottom:4px;",
         
@@ -346,9 +363,9 @@ server <- function(input, output, session) {
                      letter-spacing:0.08em; margin-bottom:8px;",
                 icon("calendar-xmark", style="margin-right:5px;"), "Jour le plus pollué"),
             div(style = "font-size:26px; font-weight:800; color:#111827;",
-                jour_pollue$jour_semaine),
+                jp_nom),
             div(style = "font-size:13px; color:#6b7280; margin-top:4px;",
-                paste0("Moyenne : ", round(jour_pollue$moy, 1), " ", input$temp_polluant))
+                paste0("Moyenne : ", jp_moy, " ", polluant_unit))
         ),
         
         # Heure la plus polluée
@@ -358,9 +375,9 @@ server <- function(input, output, session) {
                      letter-spacing:0.08em; margin-bottom:8px;",
                 icon("arrow-trend-up", style="margin-right:5px;"), "Heure la plus polluée"),
             div(style = "font-size:26px; font-weight:800; color:#111827;",
-                paste0(heure_max$heure, "h")),
+                paste0(hm_heur, "h")),
             div(style = "font-size:13px; color:#6b7280; margin-top:4px;",
-                paste0("Moyenne : ", round(heure_max$moy, 1), " ", input$temp_polluant))
+                paste0("Moyenne : ", hm_moy, " ", polluant_unit))
         ),
         
         # Heure la plus saine
@@ -370,12 +387,13 @@ server <- function(input, output, session) {
                      letter-spacing:0.08em; margin-bottom:8px;",
                 icon("arrow-trend-down", style="margin-right:5px;"), "Heure la plus saine"),
             div(style = "font-size:26px; font-weight:800; color:#111827;",
-                paste0(heure_min$heure, "h")),
+                paste0(hn_heur, "h")),
             div(style = "font-size:13px; color:#6b7280; margin-top:4px;",
-                paste0("Moyenne : ", round(heure_min$moy, 1), " ", input$temp_polluant))
+                paste0("Moyenne : ", hn_moy, " ", polluant_unit))
         )
     )
   })
+  
   
   # graphique des horaires 
   
@@ -800,6 +818,226 @@ server <- function(input, output, session) {
     
     tagList(items)
   })
+  
+  #----------------PREDICTION----------------#
+  
+  zone_to_num <- reactive({
+    zones <- c("Amphi_Central"  = 1, "Cites_Univ"   = 2,
+               "Parking_Entree" = 3, "Restaurant_U" = 4,
+               "Zone_Verte"     = 5)
+    as.numeric(zones[input$pred_zone])
+  })
+  
+  aqi_predit <- reactive({
+    new_data <- data.frame(
+      heure        = as.numeric(input$pred_heure),
+      jour_index   = as.numeric(input$pred_jour),
+      est_weekend  = as.numeric(input$pred_jour >= 6),
+      temperature_C = as.numeric(input$pred_temp),
+      humidite_pct  = as.numeric(input$pred_hum),
+      zone_num      = zone_to_num()
+    )
+    round(predict(rf_model, newdata = new_data), 1)
+  })
+  
+  output$pred_result_card <- renderUI({
+    aqi  <- aqi_predit()
+    coul <- couleur_aqi(aqi)
+    lbl  <- label_aqi(aqi)
+    
+    conseil <- dplyr::case_when(
+      aqi < 20 ~ "Air sain. Activités extérieures sans restriction.",
+      aqi < 40 ~ "Qualité acceptable. Personnes sensibles à surveiller.",
+      aqi < 60 ~ "Pollution notable. Limiter les efforts prolongés dehors.",
+      TRUE     ~ "Air dangereux. Éviter toute exposition extérieure."
+    )
+    
+    icone <- dplyr::case_when(
+      aqi < 20 ~ "circle-check",
+      aqi < 40 ~ "circle-exclamation",
+      aqi < 60 ~ "triangle-exclamation",
+      TRUE     ~ "circle-xmark"
+    )
+    
+    div(style = paste0(
+      "background: linear-gradient(135deg, white 60%, ", coul, "18);",
+      "border-radius:16px; padding:28px 32px;",
+      "border-left:6px solid ", coul, ";",
+      "box-shadow:0 2px 12px rgba(0,0,0,0.08);"
+    ),
+    div(style = "display:flex; align-items:center; gap:24px;",
+        
+        # Cercle AQI
+        div(style = paste0(
+          "width:100px; height:100px; border-radius:50%;",
+          "background:", coul, "22;",
+          "border:4px solid ", coul, ";",
+          "display:flex; flex-direction:column;",
+          "align-items:center; justify-content:center;"
+        ),
+        div(style = paste0("font-size:30px; font-weight:900; color:", coul, ";"), aqi),
+        div(style = "font-size:10px; color:#6b7280; font-weight:600;", "AQI")
+        ),
+        
+        # Texte
+        div(
+          div(style = paste0("font-size:22px; font-weight:800; color:", coul, ";
+                              margin-bottom:6px;"), lbl),
+          div(style = "font-size:13px; color:#6b7280; max-width:300px;", conseil),
+          div(style = "margin-top:10px;",
+              icon(icone, style = paste0("color:", coul, "; font-size:18px;"))
+          )
+        )
+    )
+    )
+  })
+  
+  output$pred_courbe_24h <- renderPlot({
+    
+    predictions_24h <- data.frame(heure = 0:23) %>%
+      mutate(
+        aqi_predit = sapply(heure, function(h) {
+          new_data <- data.frame(
+            heure         = h,
+            jour_index    = as.numeric(input$pred_jour),
+            est_weekend   = as.numeric(input$pred_jour >= 6),
+            temperature_C = as.numeric(input$pred_temp),
+            humidite_pct  = as.numeric(input$pred_hum),
+            zone_num      = zone_to_num()
+          )
+          round(predict(rf_model, newdata = new_data), 1)
+        }),
+        couleur = couleur_aqi(aqi_predit)
+      )
+    
+    heure_selectionnee <- as.numeric(input$pred_heure)
+    aqi_actuel         <- aqi_predit()
+    
+    ggplot(predictions_24h, aes(x = heure, y = aqi_predit)) +
+      geom_ribbon(aes(ymin = pmax(0, aqi_predit - 5),
+                      ymax = aqi_predit + 5),
+                  fill = "#3b82f6", alpha = 0.10) +
+      geom_smooth(method = "loess", span = 0.4, se = FALSE,
+                  color = "#3b82f6", linewidth = 2) +
+      geom_point(aes(color = couleur), size = 2.5, show.legend = FALSE) +
+      scale_color_identity() +
+      geom_vline(xintercept = heure_selectionnee,
+                 linetype = "dashed", color = "#6b7280", linewidth = 0.8) +
+      annotate("point", x = heure_selectionnee, y = aqi_actuel,
+               color = "#111827", size = 5) +
+      annotate("text", x = heure_selectionnee, y = aqi_actuel,
+               label = paste0(aqi_actuel, " AQI"),
+               vjust = -1.2, fontface = "bold",
+               color = "#111827", size = 4) +
+      scale_x_continuous(breaks = seq(0, 23, 3),
+                         labels = paste0(seq(0, 23, 3), "h")) +
+      scale_y_continuous(limits = c(0, max(predictions_24h$aqi_predit) * 1.25)) +
+      labs(x = "Heure de la journée", y = "AQI prédit",
+           title = "Prédiction AQI sur 24h") +
+      theme_minimal() +
+      theme(
+        plot.title       = element_text(size = 13, face = "bold", color = "#111827"),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = "#f3f4f6"),
+        axis.text        = element_text(size = 11, color = "#6b7280"),
+        axis.title       = element_text(size = 11, color = "#374151"),
+        plot.background  = element_rect(fill = "white", color = NA),
+        panel.background = element_rect(fill = "white", color = NA)
+      )
+  }, bg = "white")
+  
+  output$pred_compare_plot <- renderPlot({
+    
+    zone_id  <- input$pred_zone
+    aqi_reel <- carte_data$aqi_moy[carte_data$zone_campus == zone_id]
+    aqi_pred <- aqi_predit()
+    
+    df_compare <- data.frame(
+      type   = c("AQI réel moyen", "AQI prédit"),
+      valeur = c(aqi_reel, aqi_pred),
+      coul   = c(couleur_aqi(aqi_reel), couleur_aqi(aqi_pred))
+    )
+    
+    ggplot(df_compare, aes(x = type, y = valeur, fill = coul)) +
+      geom_col(width = 0.45, show.legend = FALSE) +
+      geom_text(aes(label = valeur, color = coul),
+                vjust = -0.6, size = 5, fontface = "bold",
+                show.legend = FALSE) +
+      geom_hline(yintercept = aqi_reel,
+                 linetype = "dashed", color = "#9ca3af", linewidth = 0.8) +
+      scale_fill_identity() +
+      scale_color_identity() +
+      scale_y_continuous(limits = c(0, max(df_compare$valeur) * 1.3)) +
+      labs(x = NULL, y = "AQI",
+           title = "AQI réel vs AQI prédit par le modèle") +
+      theme_minimal() +
+      theme(
+        plot.title         = element_text(size = 13, face = "bold", color = "#111827"),
+        panel.grid.minor   = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(color = "#f3f4f6"),
+        axis.text.x        = element_text(size = 12, color = "#374151", face = "bold"),
+        axis.text.y        = element_text(size = 10, color = "#6b7280"),
+        plot.background    = element_rect(fill = "white", color = NA),
+        panel.background   = element_rect(fill = "white", color = NA)
+      )
+  }, bg = "white")
+  
+  output$pred_importance_plot <- renderPlot({
+    
+    imp <- importance(rf_model) %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column("variable") %>%
+      arrange(desc(`%IncMSE`)) %>%
+      mutate(
+        variable = dplyr::recode(variable,
+                                 "temperature_C" = "Température",
+                                 "humidite_pct"  = "Humidité",
+                                 "heure"         = "Heure",
+                                 "jour_index"    = "Jour",
+                                 "est_weekend"   = "Weekend",
+                                 "zone_num"      = "Zone"
+        ),
+        variable = factor(variable, levels = rev(unique(variable))),
+        couleur  = colorRampPalette(c("#93c5fd", "#1d4ed8"))(n())
+      )
+    
+    ggplot(imp, aes(x = variable, y = `%IncMSE`, fill = couleur)) +
+      geom_col(width = 0.55, show.legend = FALSE) +
+      geom_text(aes(label = round(`%IncMSE`, 1)),
+                hjust = -0.2, size = 4, fontface = "bold", color = "#1d4ed8") +
+      scale_fill_identity() +
+      scale_y_continuous(limits = c(0, max(imp$`%IncMSE`) * 1.3)) +
+      coord_flip() +
+      labs(x = NULL, y = "Importance (%IncMSE)",
+           title = "Importance des variables — Random Forest") +
+      theme_minimal() +
+      theme(
+        plot.title         = element_text(size = 13, face = "bold", color = "#111827"),
+        panel.grid.minor   = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(color = "#f3f4f6"),
+        axis.text.y        = element_text(size = 12, color = "#374151", face = "bold"),
+        axis.text.x        = element_text(size = 10, color = "#6b7280"),
+        plot.background    = element_rect(fill = "white", color = NA),
+        panel.background   = element_rect(fill = "white", color = NA)
+      )
+  }, bg = "white")
+  
+  output$rf_rmse <- renderText({
+    predictions <- predict(rf_model, newdata = df_model)
+    rmse <- round(sqrt(mean((df_model$AQI_calcule - predictions)^2)), 2)
+    paste0("RMSE : ", rmse)
+  })
+  
+  output$rf_rsq <- renderText({
+    predictions <- predict(rf_model, newdata = df_model)
+    ss_res <- sum((df_model$AQI_calcule - predictions)^2)
+    ss_tot <- sum((df_model$AQI_calcule - mean(df_model$AQI_calcule))^2)
+    rsq <- round(1 - ss_res / ss_tot, 3)
+    paste0("R² : ", rsq)
+  })
+  
   
   
   } # fin server
