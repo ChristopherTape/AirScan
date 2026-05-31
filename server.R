@@ -319,4 +319,324 @@ server <- function(input, output, session) {
   })
   
   
+  # Correlation
+  
+  var_labels <- c(
+    CO_ppm           = "CO (ppm)",
+    CO2_ppm          = "CO2 (ppm)",
+    NH3_ppm          = "NH3 (ppm)",
+    temperature_C    = "Temperature (°C)",
+    humidite_pct     = "Humidite (%)",
+    score_vegetation = "Score vegetation"
+  )
+  
+  #  Données filtrées selon les choix de l'utilisateur 
+  df_corr <- reactive({
+    req(input$corr_zones, input$corr_periodes)
+    df %>%
+      filter(
+        zone_campus     %in% input$corr_zones,
+        periode_journee %in% input$corr_periodes
+      )
+  })
+  
+  # Variables sélectionnées + AQI_calcule toujours inclus
+  vars_selectionnees <- reactive({
+    req(input$corr_variables)
+    c("AQI_calcule", input$corr_variables)
+  })
+  
+  
+  #  Matrice de corrélation 
+  output$matrice_correlation <- renderPlot({
+    data <- df_corr()
+    vars <- vars_selectionnees()
+    
+    validate(
+      need(nrow(data) > 10,
+           "Pas assez de données. Sélectionnez plus de zones ou périodes."),
+      need(length(vars) >= 2,
+           "Sélectionnez au moins une variable en plus de l'AQI.")
+    )
+    
+    mat <- cor(data[, vars], use = "complete.obs")
+    
+    # Labels lisibles sur la matrice
+    colnames(mat) <- rownames(mat) <- c("AQI", var_labels[vars[-1]])
+    
+    corrplot(
+      mat,
+      method      = "color",
+      type        = "upper",
+      order       = "original",
+      addCoef.col = "black",
+      number.cex  = 0.85,
+      tl.col      = "#111827",
+      tl.srt      = 45,
+      tl.cex      = 0.90,
+      cl.cex      = 0.80,
+      col         = colorRampPalette(c("#d73027", "#fc8d59", "#fee090",
+                                       "white",
+                                       "#91cf60", "#1a9850"))(200),
+      mar         = c(0, 0, 1, 0)
+    )
+  })
+  
+  
+  #  Badges de corrélation (panneau statistiques) 
+  output$corr_stats_ui <- renderUI({
+    data <- df_corr()
+    vars <- input$corr_variables
+    
+    validate(need(nrow(data) > 5, "Données insuffisantes."))
+    
+    # Calcul des corrélations avec AQI_calcule
+    corrs <- sapply(vars, function(v) {
+      cor(data$AQI_calcule, data[[v]], use = "complete.obs")
+    })
+    corrs <- sort(corrs, decreasing = TRUE)
+    
+    # Classe du badge selon intensité
+    badge_class <- function(r) {
+      ar <- abs(r)
+      if      (ar >= 0.7 && r > 0) "corr-badge badge-forte"
+      else if (ar >= 0.7 && r < 0) "corr-badge badge-negative"
+      else if (ar >= 0.4)           "corr-badge badge-moderee"
+      else                          "corr-badge badge-faible"
+    }
+    
+    badge_text <- function(r) {
+      paste0(if (r > 0) "+" else "", round(r, 2))
+    }
+    
+    # Générer les lignes UI
+    items <- lapply(names(corrs), function(v) {
+      r <- corrs[[v]]
+      tags$div(class = "corr-stat-box",
+               tags$span(class = "corr-stat-label", var_labels[v]),
+               tags$span(class = badge_class(r), badge_text(r))
+      )
+    })
+    
+    tagList(items)
+  })
+  
+  
+  # Nombre d'observations et zones 
+  output$corr_n_obs <- renderText({
+    format(nrow(df_corr()), big.mark = " ")
+  })
+  
+  output$corr_n_zones <- renderText({
+    length(input$corr_zones)
+  })
+  
+  
+  #  Nuage de points AQI vs variable choisie
+  output$scatter_aqi <- renderPlot({
+    data <- df_corr()
+    var  <- input$scatter_var
+    
+    validate(
+      need(nrow(data) > 5, "Données insuffisantes pour le graphique."),
+      need(var %in% names(data), "Variable non disponible.")
+    )
+    
+    r_val   <- round(cor(data$AQI_calcule, data[[var]], use = "complete.obs"), 3)
+    label_x <- var_labels[var]
+    
+    ggplot(data, aes_string(x = var, y = "AQI_calcule", color = "zone_campus")) +
+      geom_point(alpha = 0.35, size = 1.2) +
+      geom_smooth(method = "lm", color = "#3b82f6", se = TRUE,
+                  linewidth = 1.2, fill = "#bfdbfe", alpha = 0.25) +
+      annotate("text",
+               x = -Inf, y = Inf,
+               hjust = -0.1, vjust = 1.4,
+               label = paste0("r = ", r_val),
+               size = 5, fontface = "bold", color = "#1d4ed8") +
+      scale_color_manual(
+        values = c(
+          Parking_Entree = "#ef4444",
+          Amphi_Central  = "#f97316",
+          Restaurant_U   = "#eab308",
+          Cites_Univ     = "#22c55e",
+          Zone_Verte     = "#16a34a"
+        ),
+        labels = c(
+          Parking_Entree = "Parking Entree",
+          Amphi_Central  = "Amphithéâtres",
+          Restaurant_U   = "Restaurant Univ.",
+          Cites_Univ     = "Cités Univ.",
+          Zone_Verte     = "Zone Verte"
+        )
+      ) +
+      labs(x = label_x, y = "AQI calculé", color = "Zone") +
+      theme_minimal(base_size = 13) +
+      theme(
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(color = "#f3f4f6"),
+        axis.title       = element_text(color = "#374151", size = 12),
+        axis.text        = element_text(color = "#6b7280"),
+        legend.position  = "right",
+        plot.background  = element_blank(),
+        panel.background = element_blank()
+      )
+  })
+  
+  
+  #  Barplot des corrélations 
+  output$corr_barplot <- renderPlot({
+    data <- df_corr()
+    vars <- input$corr_variables
+    
+    validate(need(nrow(data) > 5 & length(vars) >= 1, "Données insuffisantes."))
+    
+    corrs <- sapply(vars, function(v) {
+      cor(data$AQI_calcule, data[[v]], use = "complete.obs")
+    })
+    
+    df_plot <- data.frame(
+      variable    = var_labels[names(corrs)],
+      correlation = as.numeric(corrs),
+      stringsAsFactors = FALSE
+    ) %>% arrange(correlation)
+    
+    df_plot$variable <- factor(df_plot$variable, levels = df_plot$variable)
+    df_plot$couleur  <- ifelse(df_plot$correlation >= 0, "#22c55e", "#ef4444")
+    
+    ggplot(df_plot, aes(x = variable, y = correlation, fill = couleur)) +
+      geom_col(width = 0.6, show.legend = FALSE) +
+      geom_hline(yintercept = 0,    color = "#374151", linewidth = 0.6) +
+      geom_hline(yintercept =  0.7, linetype = "dashed",
+                 color = "#16a34a", linewidth = 0.5, alpha = 0.7) +
+      geom_hline(yintercept = -0.7, linetype = "dashed",
+                 color = "#dc2626", linewidth = 0.5, alpha = 0.7) +
+      geom_text(aes(label = round(correlation, 2),
+                    vjust = ifelse(correlation >= 0, -0.4, 1.3)),
+                size = 4, fontface = "bold", color = "#111827") +
+      scale_fill_identity() +
+      scale_y_continuous(limits = c(-1, 1), breaks = seq(-1, 1, 0.25)) +
+      coord_flip() +
+      labs(x = NULL, y = "Coefficient de corrélation (r)") +
+      theme_minimal(base_size = 13) +
+      theme(
+        panel.grid.minor   = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(color = "#f3f4f6"),
+        axis.text          = element_text(color = "#374151", size = 11),
+        axis.title.x       = element_text(color = "#6b7280", size = 11),
+        plot.background    = element_blank(),
+        panel.background   = element_blank()
+      )
+  })
+  
+  
+  ### Sante
+  
+  aqi_couleur <- function(aqi) {
+    if      (is.na(aqi))   "#6b7280"
+    else if (aqi <= 50)    "#22c55e"
+    else if (aqi <= 100)   "#eab308"
+    else if (aqi <= 150)   "#f97316"
+    else if (aqi <= 200)   "#ef4444"
+    else                   "#7c3aed"
+  }
+  
+  heures_par_profil <- c(
+    etudiant  = 6,
+    personnel = 8,
+    riverain  = 12,
+    passant   = 1
+  )
+  
+  output$duree_label <- renderText({
+    paste0(input$duree_expo, " an", if (input$duree_expo > 1) "s" else "")
+  })
+  
+  output$sante_titre_graphe <- renderUI({
+    span(paste0("Risque respiratoire — ", input$duree_expo,
+                " an(s) — ", input$profil_expo))
+  })
+  
+  output$plot_risque <- renderPlot({
+    h     <- heures_par_profil[input$profil_expo]
+    duree <- input$duree_expo
+    
+    df_zone <- df %>%                          # ← df au lieu de df_raw
+      group_by(zone_campus) %>%
+      summarise(aqi_moy = mean(AQI_calcule, na.rm = TRUE))
+    
+    df_zone$risque     <- df_zone$aqi_moy * (h / 24) * duree / 10
+    df_zone$zone_label <- gsub("_", " ", df_zone$zone_campus)
+    df_zone$zone_label <- factor(df_zone$zone_label,
+                                 levels = df_zone$zone_label[order(df_zone$risque)])
+    df_zone$couleur    <- sapply(df_zone$aqi_moy, aqi_couleur)
+    
+    ggplot(df_zone, aes(x = zone_label, y = risque, fill = couleur)) +
+      geom_col(width = 0.6, show.legend = FALSE) +
+      geom_text(aes(label = round(risque, 1)), hjust = -0.2,
+                size = 4, fontface = "bold", color = "#111827") +
+      scale_fill_identity() +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+      coord_flip() +
+      labs(x = NULL, y = "Score de risque respiratoire") +
+      theme_minimal(base_size = 12) +
+      theme(
+        panel.grid.minor   = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.text          = element_text(color = "#374151"),
+        plot.background    = element_blank(),
+        panel.background   = element_blank()
+      )
+  })
+  
+  #  Interprétation automatique par zone 
+  output$sante_interpretation_ui <- renderUI({
+    h     <- heures_par_profil[input$profil_expo]
+    duree <- input$duree_expo
+    
+    df_zone <- df %>%
+      group_by(zone_campus) %>%
+      summarise(aqi_moy = mean(AQI_calcule, na.rm = TRUE)) %>%
+      mutate(
+        risque     = round(aqi_moy * (h / 24) * duree / 10, 1),
+        zone_label = gsub("_", " ", zone_campus)
+      ) %>%
+      arrange(desc(risque))
+    
+    # Fonction niveau et couleur selon score
+    niveau_info <- function(score) {
+      if      (score < 1) list(label = "Faible",     bg = "#dcfce7", col = "#16a34a")
+      else if (score < 3) list(label = "Modere",     bg = "#fef9c3", col = "#854d0e")
+      else if (score < 5) list(label = "Eleve",      bg = "#ffedd5", col = "#c2410c")
+      else                list(label = "Tres eleve", bg = "#fee2e2", col = "#dc2626")
+    }
+    
+    # Générer une ligne par zone
+    items <- lapply(1:nrow(df_zone), function(i) {
+      z     <- df_zone$zone_label[i]
+      score <- df_zone$risque[i]
+      info  <- niveau_info(score)
+      
+      div(style = "display:flex; align-items:center; justify-content:space-between;
+                   padding:9px 0; border-bottom:1px solid #f3f4f6;",
+          div(
+            tags$span(style = "font-size:13px; color:#374151; font-weight:500;", z),
+            tags$br(),
+            tags$span(style = "font-size:12px; color:#6b7280;",
+                      paste0("Score : ", score))
+          ),
+          tags$span(
+            style = paste0("background:", info$bg, "; color:", info$col,
+                           "; border-radius:10px; font-size:11px;",
+                           " font-weight:600; padding:3px 10px;"),
+            info$label
+          )
+      )
+    })
+    
+    tagList(items)
+  })
+  
+  
   } # fin server
