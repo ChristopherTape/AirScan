@@ -47,29 +47,23 @@ server <- function(input, output, session) {
   
   
   
-  # KPI 2 : CO max
+  # KPI 2 : CO max (moyenne de la zone la plus polluée)
 
   output$co_max <- renderText({
-    round(quantile(df$CO_ppm, 0.95, na.rm = TRUE), 1)
+    round(max(stats_zones$co_moy), 1)
   })
-  
-  output$co2_max <- renderText({
-    round(quantile(df$CO2_ppm, 0.95, na.rm = TRUE), 0)
-  })
-  
+
   output$co_badge <- renderUI({
     zone_max <- stats_zones$zone_campus[which.max(stats_zones$co_moy)]
     label <- gsub("_", " ", zone_max)
     label <- gsub("Parking Entree", "Parking", label)
     tags$span(label, class = "badge-mauvais")
   })
-  
-  
-  
-  # KPI 3  CO₂ max
-  
+
+  # KPI 3 : CO₂ max (moyenne de la zone la plus polluée)
+
   output$co2_max <- renderText({
-    round(max(df$CO2_ppm, na.rm = TRUE), 0)
+    round(max(stats_zones$co2_moy), 0)
   })
   
   output$co2_badge <- renderUI({
