@@ -1334,63 +1334,6 @@ dashboardPage(
                 )
               ),
 
-              fluidRow(
-                column(12,
-                       div(class = "chart-card", style = "padding:16px;",
-                           div(class = "chart-header",
-                               icon("circle-play"), span("Présentation du projet")),
-                           div(style = "position:relative; border-radius:8px; overflow:hidden; background:#000;",
-                             tags$video(
-                               id    = "projet-video",
-                               src   = "Video.mp4",
-                               type  = "video/mp4",
-                               style = "width:100%; display:block;"
-                             ),
-                             # Overlay play button
-                             tags$div(
-                               id    = "play-overlay",
-                               style = "position:absolute; inset:0; display:flex;
-                                        align-items:center; justify-content:center;
-                                        background:rgba(0,0,0,0.35); cursor:pointer;
-                                        transition:background 0.2s;",
-                               tags$div(
-                                 style = "width:72px; height:72px; border-radius:50%;
-                                          background:rgba(255,255,255,0.92);
-                                          display:flex; align-items:center; justify-content:center;
-                                          box-shadow:0 4px 24px rgba(0,0,0,0.35);
-                                          transition:transform 0.15s, box-shadow 0.15s;",
-                                 tags$svg(
-                                   xmlns="http://www.w3.org/2000/svg",
-                                   viewBox="0 0 24 24", width="32", height="32",
-                                   tags$polygon(points="6,3 21,12 6,21", fill="#111827")
-                                 )
-                               )
-                             ),
-                             tags$script(HTML("
-                               (function() {
-                                 var vid     = document.getElementById('projet-video');
-                                 var overlay = document.getElementById('play-overlay');
-                                 overlay.addEventListener('click', function() {
-                                   if (vid.paused) {
-                                     vid.play();
-                                     overlay.style.display = 'none';
-                                   }
-                                 });
-                                 vid.addEventListener('click', function() {
-                                   if (!vid.paused) {
-                                     vid.pause();
-                                     overlay.style.display = 'flex';
-                                   }
-                                 });
-                                 vid.addEventListener('ended', function() {
-                                   overlay.style.display = 'flex';
-                                 });
-                               })();
-                             "))
-                           )
-                       )
-                )
-              )
               
               
               
