@@ -5,7 +5,7 @@ account: airscan
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 17446619
-bundleId: 12064478
+bundleId: 12073199
 url: https://airscan.shinyapps.io/AirScan/
 version: 1
 asMultiple: FALSE

@@ -62,7 +62,7 @@ zones_labels <- c(
 
 ::: {.hero}
 # AirScan CI
-**Surveillance intelligente de la qualité de l'air — Campus UFHB Cocody · Abidjan · 2026**
+**Surveillance intelligente de la qualité de l'air au Campus UFHB Cocody · Abidjan · 2026**
 :::
 
 ---
@@ -78,7 +78,9 @@ Pourtant, les sources de pollution y sont multiples et quotidiennes :
 - **Accumulation de CO₂** dans les amphithéâtres bondés lors des cours
 - **Déchets organiques** dans les cités universitaires
 
-Ces polluants — monoxyde de carbone (CO), dioxyde de carbone (CO₂) et ammoniac (NH₃) — ont des effets documentés sur la santé : fatigue, maux de tête, baisse de concentration, et à long terme, risques respiratoires chroniques.
+Ces polluants : monoxyde de carbone (CO), dioxyde de carbone (CO₂) et ammoniac (NH₃) ont des effets documentés sur la santé : fatigue, maux de tête, baisse de concentration, et à long terme, risques respiratoires chroniques.
+
+AirScan CI est une application web interactive développée sous R Shiny dans le cadre du Master 1 Data Science de l’UFHB. Elle permet de surveiller, analyser et prédire la qualité de l’air sur cinq zones du campus universitaire de Cocody à Abidjan
 
 ::: {.callout-custom}
 **Aucun système de surveillance de la qualité de l'air n'existait sur le campus de l'UFHB avant ce projet.**
@@ -86,7 +88,19 @@ Ces polluants — monoxyde de carbone (CO), dioxyde de carbone (CO₂) et ammoni
 
 **AirScan CI** répond à ce vide en déployant une balise de mesure autonome sur le campus, collectant des données en temps réel, et en les rendant accessibles à tous via un tableau de bord interactif.
 
+
+# L'application AirScan CI
+
+**Accès à l'application :** [https://airscan.shinyapps.io/AirScan/](https://airscan.shinyapps.io/AirScan/)
+
 ---
+
+# Vidéo de présentation 
+
+[![Cliquez pour voir la vidéo de présentation](https://img.youtube.com/vi/kOF9x6umxF4/maxresdefault.jpg)](https://www.youtube.com/watch?v=kOF9x6umxF4){target="_blank" width="70%"}
+
+*Cliquez sur l'image pour ouvrir la vidéo YouTube*
+
 
 # Le système AirScan
 
@@ -147,9 +161,13 @@ kable(zones_stat,
 
 ---
 
+
+
 # Analyse des données
 
-## Indice de Qualité de l'Air (AQI) par zone
+## Dashboard principale vue d'ensemble
+
+Le tableau de bord principal affiche les indicateurs clés en temps réel : AQI moyen du campus , pic de CO maximal , pic de CO₂ et la zone la plus saine. Un graphique à barres horizontales compare visuellement les niveaux d'AQI entre les cinq zones.
 
 ```{r plot-aqi-zone}
 stats <- df %>%
@@ -181,97 +199,252 @@ ggplot(stats, aes(x = reorder(label, aqi_moy), y = aqi_moy, fill = couleur)) +
   )
 ```
 
-## Évolution horaire des polluants
+## Carte interactive
 
-```{r plot-horaire}
-df %>%
+La carte interactive, construite avec le package `leaflet`, affiche les cinq zones de mesure sur un fond OpenStreetMap centré sur le campus UFHB. Chaque zone est représentée par un cercle coloré dont la teinte encode le niveau d'AQI. Un clic sur un marqueur ouvre un panneau latéral avec le détail complet : CO, CO₂, NH₃, AQI, température et humidité.
+
+```{r carte-interactive}
+library(leaflet)
+
+coords_zones <- data.frame(
+  zone_campus = c("Parking_Entree", "Restaurant_U", "Amphi_Central", "Cites_Univ", "Zone_Verte"),
+  lat = c(5.348818, 5.341344, 5.344578, 5.337946, 5.340596),
+  lng = c(-3.987953, -3.989093, -3.991188, -3.995048, -3.991763),
+  label = c("Parking Entrée", "Restaurant U", "Amphithéâtres", "Cités Univ.", "Zone Verte"),
+  aqi  = c(23.5, 16.2, 12.0, 13.4, 6.2)
+)
+
+couleurs <- c("#f59e0b", "#22c55e", "#22c55e", "#22c55e", "#22c55e")
+
+leaflet(coords_zones) %>%
+  addTiles() %>%
+  setView(lng = -3.9910, lat = 5.3440, zoom = 15) %>%
+  addCircleMarkers(
+    lng = ~lng, lat = ~lat,
+    radius = 20,
+    color = couleurs,
+    fillColor = couleurs,
+    fillOpacity = 0.5,
+    stroke = TRUE, weight = 2,
+    popup = ~paste0(
+      "<b>", label, "</b><br/>AQI moyen : ", aqi
+    ),
+    label = ~label,
+    labelOptions = labelOptions(
+      noHide = TRUE, direction = "top",
+      style = list(
+        "font-weight" = "700", "font-size" = "12px",
+        "background" = "white", "border" = "1px solid #e5e7eb",
+        "border-radius" = "6px", "padding" = "3px 8px"
+      )
+    )
+  )
+```
+
+## Analyse temporelle
+
+La page d'analyse temporelle propose trois filtres combinables : zone, polluant (AQI, CO, CO₂, NH₃) et période (tous / semaine / weekend). Trois indicateurs synthétiques s'affichent dynamiquement : jour le plus pollué, heure de pic et heure la plus saine.
+
+
+```{r temporelle-interactive}
+library(plotly)
+
+df_h <- df %>%
   group_by(heure, zone_campus) %>%
-  summarise(co_moy = mean(CO_ppm, na.rm = TRUE), .groups = "drop") %>%
-  mutate(label = zones_labels[zone_campus]) %>%
-  ggplot(aes(x = heure, y = co_moy, color = label)) +
-  geom_line(linewidth = 1.1) +
-  geom_point(size = 1.5) +
-  scale_x_continuous(breaks = seq(0, 23, 3), labels = paste0(seq(0, 23, 3), "h")) +
-  scale_color_manual(values = c(
-    "Parking Entrée" = "#ef4444",
-    "Restaurant U."  = "#f59e0b",
-    "Amphithéâtres"  = "#3b82f6",
-    "Cités Univ."    = "#22c55e",
-    "Zone Verte"     = "#16a34a"
-  )) +
-  labs(title = "Concentration en CO (ppm) par heure de la journée",
-       subtitle = "Pics au Parking lors des heures de pointe (6h-8h et 17h-19h)",
-       x = "Heure", y = "CO moyen (ppm)", color = "Zone") +
+  summarise(aqi_moy = round(mean(AQI_calcule, na.rm = TRUE), 1), .groups = "drop") %>%
+  mutate(label = zones_labels[zone_campus])
+
+couleurs_zones <- c(
+  "Parking Entrée" = "#ef4444",
+  "Restaurant U."  = "#f59e0b",
+  "Amphithéâtres"  = "#3b82f6",
+  "Cités Univ."    = "#22c55e",
+  "Zone Verte"     = "#16a34a"
+)
+
+p <- ggplot(df_h, aes(x = heure, y = aqi_moy, color = label,
+                       text = paste0(label, "<br>Heure : ", heure, "h<br>AQI : ", aqi_moy))) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2) +
+  scale_color_manual(values = couleurs_zones) +
+  scale_x_continuous(breaks = seq(0, 23, 3),
+                     labels = paste0(seq(0, 23, 3), "h")) +
+  labs(
+    title = "Évolution de l'AQI par heure — toutes zones",
+    x = "Heure de la journée",
+    y = "AQI moyen",
+    color = "Zone"
+  ) +
   theme_minimal(base_size = 13) +
   theme(
     panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "#f3f4f6"),
     plot.title       = element_text(face = "bold", color = "#111827"),
-    plot.subtitle    = element_text(color = "#6b7280", size = 10),
-    legend.position  = "bottom",
-    legend.title     = element_text(size = 10)
+    legend.position  = "bottom"
+  )
+
+ggplotly(p, tooltip = "text") %>%
+  layout(
+    legend = list(orientation = "h", y = -0.2),
+    hovermode = "x unified"
   )
 ```
 
-## CO₂ dans les amphithéâtres — effet de la présence étudiante
+## Prédiction par Random Forest
 
-```{r plot-co2-amphi}
-df %>%
-  filter(zone_campus %in% c("Amphi_Central", "Zone_Verte")) %>%
-  group_by(heure, zone_campus) %>%
-  summarise(co2_moy = mean(CO2_ppm, na.rm = TRUE), .groups = "drop") %>%
-  mutate(label = zones_labels[zone_campus]) %>%
-  ggplot(aes(x = heure, y = co2_moy, fill = label)) +
-  geom_col(position = "dodge", width = 0.7) +
-  geom_hline(yintercept = 1000, linetype = "dashed", color = "#f59e0b", linewidth = 0.8) +
-  annotate("text", x = 22, y = 1020, label = "Seuil OMS cognitif (1000 ppm)",
-           color = "#f59e0b", size = 3.2, hjust = 1) +
-  scale_x_continuous(breaks = seq(0, 23, 3), labels = paste0(seq(0, 23, 3), "h")) +
-  scale_fill_manual(values = c("Amphithéâtres" = "#3b82f6", "Zone Verte" = "#16a34a")) +
-  labs(title = "CO₂ — Amphithéâtres vs Zone Verte",
-       subtitle = "Le CO₂ dépasse le seuil OMS pendant les créneaux de cours",
-       x = "Heure", y = "CO₂ moyen (ppm)", fill = "Zone") +
-  theme_minimal(base_size = 13) +
-  theme(
-    panel.grid.minor   = element_blank(),
-    panel.grid.major.x = element_blank(),
-    plot.title    = element_text(face = "bold", color = "#111827"),
-    plot.subtitle = element_text(color = "#6b7280", size = 10),
-    legend.position = "bottom"
+La page de prédiction s'appuie sur un modèle Random Forest entraîné sur les 10 080 observations. L'utilisateur sélectionne une zone, une heure et un jour ; le modèle prédit instantanément l'AQI attendu avec un conseil sanitaire. Le modèle affiche des performances très satisfaisantes : **R² = 0.976** et **RMSE = 1.43**.
+
+```{r prediction-creative}
+library(plotly)
+library(randomForest)
+
+# Recharger le modèle
+set.seed(42)
+df_model <- df %>%
+  select(AQI_calcule, heure, jour_index, est_weekend,
+         temperature_C, humidite_pct, zone_campus) %>%
+  mutate(
+    est_weekend = as.numeric(est_weekend == "True"),
+    zone_num    = as.numeric(as.factor(zone_campus))
+  ) %>%
+  na.omit()
+
+rf_model <- randomForest(
+  AQI_calcule ~ heure + jour_index + est_weekend +
+                temperature_C + humidite_pct + zone_num,
+  data = df_model, ntree = 100, importance = TRUE
+)
+
+# Prédictions sur 24h pour le Parking (zone la plus intéressante)
+pred_24h <- data.frame(heure = 0:23) %>%
+  mutate(
+    aqi_predit = sapply(heure, function(h) {
+      round(predict(rf_model, newdata = data.frame(
+        heure = h, jour_index = 1, est_weekend = 0,
+        temperature_C = 27.1, humidite_pct = 84,
+        zone_num = 3  # Parking
+      )), 1)
+    }),
+    couleur = case_when(
+      aqi_predit < 20 ~ "#22c55e",
+      aqi_predit < 40 ~ "#f59e0b",
+      aqi_predit < 60 ~ "#ef4444",
+      TRUE            ~ "#9d174d"
+    ),
+    categorie = case_when(
+      aqi_predit < 20 ~ "Bon",
+      aqi_predit < 40 ~ "Modéré",
+      aqi_predit < 60 ~ "Mauvais",
+      TRUE            ~ "Dangereux"
+    )
   )
-```
 
-## Semaine vs Week-end
+# Graphique 1 — Courbe 24h
+p1 <- plot_ly(pred_24h) %>%
+  add_ribbons(
+    x = ~heure,
+    ymin = ~pmax(0, aqi_predit - 6),
+    ymax = ~aqi_predit + 6,
+    fillcolor = "rgba(59,130,246,0.12)",
+    line = list(color = "transparent"),
+    showlegend = FALSE,
+    hoverinfo = "none"
+  ) %>%
+  add_lines(
+    x = ~heure, y = ~aqi_predit,
+    line = list(color = "#3b82f6", width = 3, shape = "spline"),
+    name = "AQI prédit",
+    hovertemplate = "<b>%{x}h</b><br>AQI prédit : %{y}<extra></extra>"
+  ) %>%
+  add_markers(
+    x = ~heure, y = ~aqi_predit,
+    marker = list(color = ~couleur, size = 9, line = list(color = "white", width = 1.5)),
+    text = ~paste0(heure, "h — AQI: ", aqi_predit, " (", categorie, ")"),
+    hovertemplate = "%{text}<extra></extra>",
+    showlegend = FALSE
+  ) %>%
+  add_segments(
+    x = 8, xend = 8, y = 0, yend = max(pred_24h$aqi_predit) * 1.1,
+    line = list(color = "#9ca3af", dash = "dot", width = 1.5),
+    showlegend = FALSE, hoverinfo = "none"
+  ) %>%
+  add_annotations(
+    x = 8.3, y = max(pred_24h$aqi_predit) * 1.05,
+    text = "Rush matin", showarrow = FALSE,
+    font = list(size = 10, color = "#6b7280")
+  ) %>%
+  layout(
+    title = list(text = "Prédiction AQI sur 24h — Parking Entrée (Lundi)",
+                 font = list(size = 13, color = "#111827")),
+    xaxis = list(title = "Heure", tickvals = seq(0, 23, 3),
+                 ticktext = paste0(seq(0, 23, 3), "h"),
+                 gridcolor = "#f3f4f6"),
+    yaxis = list(title = "AQI prédit", gridcolor = "#f3f4f6"),
+    plot_bgcolor  = "white",
+    paper_bgcolor = "white"
+  )
 
-```{r plot-semaine-we}
-df %>%
-  mutate(periode = ifelse(est_weekend == "True", "Week-end", "Semaine")) %>%
-  group_by(zone_campus, periode) %>%
-  summarise(aqi_moy = mean(AQI_calcule, na.rm = TRUE), .groups = "drop") %>%
-  mutate(label = zones_labels[zone_campus]) %>%
-  ggplot(aes(x = label, y = aqi_moy, fill = periode)) +
-  geom_col(position = "dodge", width = 0.6) +
-  scale_fill_manual(values = c("Semaine" = "#3b82f6", "Week-end" = "#22c55e")) +
-  labs(title = "AQI moyen — Semaine vs Week-end",
-       subtitle = "La pollution chute significativement le week-end (moins de trafic et d'activité)",
-       x = NULL, y = "AQI moyen", fill = NULL) +
-  theme_minimal(base_size = 13) +
-  theme(
-    panel.grid.minor   = element_blank(),
-    panel.grid.major.x = element_blank(),
-    axis.text.x  = element_text(angle = 20, hjust = 1),
-    plot.title   = element_text(face = "bold", color = "#111827"),
-    plot.subtitle = element_text(color = "#6b7280", size = 10),
-    legend.position = "bottom"
+# Importance des variables
+imp <- importance(rf_model) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  arrange(desc(`%IncMSE`)) %>%
+  mutate(
+    variable = recode(variable,
+      "temperature_C" = "Température",
+      "humidite_pct"  = "Humidité",
+      "heure"         = "Heure",
+      "jour_index"    = "Jour",
+      "est_weekend"   = "Weekend",
+      "zone_num"      = "Zone"
+    ),
+    couleur = colorRampPalette(c("#93c5fd", "#1d4ed8"))(n())
+  )
+
+# Graphique 2 — Importance
+p2 <- plot_ly(imp) %>%
+  add_bars(
+    x = ~`%IncMSE`,
+    y = ~reorder(variable, `%IncMSE`),
+    orientation = "h",
+    marker = list(color = ~couleur),
+    text = ~round(`%IncMSE`, 1),
+    textposition = "outside",
+    hovertemplate = "<b>%{y}</b><br>Importance : %{x:.1f}<extra></extra>"
+  ) %>%
+  layout(
+    title = list(text = "Importance des variables (Random Forest)",
+                 font = list(size = 13, color = "#111827")),
+    xaxis = list(title = "%IncMSE", gridcolor = "#f3f4f6"),
+    yaxis = list(title = ""),
+    plot_bgcolor  = "white",
+    paper_bgcolor = "white",
+    annotations = list(
+      list(x = 0.5, y = -0.15, xref = "paper", yref = "paper",
+           text = paste0("<b>R² = 0.976</b>  |  <b>RMSE = 1.43</b>  |  100 arbres  |  10 080 obs."),
+           showarrow = FALSE, font = list(size = 11, color = "#6b7280"))
+    )
+  )
+
+# Assemblage côte à côte
+subplot(p1, p2, nrows = 1, shareY = FALSE, titleX = TRUE, titleY = TRUE,
+        widths = c(0.58, 0.42)) %>%
+  layout(
+    showlegend = FALSE,
+    margin = list(t = 60, b = 60)
   )
 ```
 
 ---
 
-# Le Dashboard
+## Corrélations
 
-Le dashboard **AirScan CI** est une application web interactive développée avec **R Shiny**. Il permet de visualiser et d'analyser les données collectées par la balise en temps réel.
+La page Corrélations présente une matrice de corrélation interactive entre les variables mesurées. On y observe que le CO est le principal déterminant de l'AQI (r = 0.87), suivi du NH₃ (r = 0.79) et du CO₂ (r = 0.68). L'humidité et le score de végétation ont une corrélation négative avec l'AQI — plus l'air est humide ou végétalisé, moins il est pollué.
 
-**Accès à l'application :** [https://airscan.shinyapps.io/AirScan/](https://airscan.shinyapps.io/AirScan/)
+## Santé 
+La page Impact Santé calcule un score de risque respiratoire par zone selon la durée d'exposition et le profil de l'utilisateur (étudiant 8h/jour, personnel, résident). En référence aux seuils OMS (CO max 8h : 9 ppm, CO₂ cognitif : 1000 ppm), le Parking Entrée présente le score le plus élevé (2.4) tandis que la Zone Verte reste en risque faible (0.6).
+
+
 
 ## Pages disponibles
 
