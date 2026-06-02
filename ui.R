@@ -130,6 +130,29 @@ dashboardPage(
                 )
               ),
               
+              # Définition AQI
+              fluidRow(
+                column(12,
+                       div(style = "background:#f0fdf4; border:1px solid #bbf7d0;
+                                    border-radius:10px; padding:12px 18px; margin-bottom:16px;
+                                    display:flex; align-items:flex-start; gap:10px;",
+                           icon("circle-info", style = "color:#16a34a; margin-top:2px; flex-shrink:0;"),
+                           tags$p(style = "font-size:13px; color:#374151; margin:0; line-height:1.65;",
+                                  tags$strong("AQI (Air Quality Index)"),
+                                  " — Indice calculé à partir des concentrations en CO, CO₂ et NH₃ mesurées par la balise.
+                                   Il résume en un seul score l'état de la qualité de l'air :",
+                                  tags$strong(style="color:#22c55e;", " < 20 Bon"),
+                                  " ·",
+                                  tags$strong(style="color:#f59e0b;", " 20–40 Modéré"),
+                                  " ·",
+                                  tags$strong(style="color:#ef4444;", " 40–60 Mauvais"),
+                                  " ·",
+                                  tags$strong(style="color:#9d174d;", " > 60 Dangereux")
+                           )
+                       )
+                )
+              ),
+
               # Graphique barres
               fluidRow(
                 column(12,
